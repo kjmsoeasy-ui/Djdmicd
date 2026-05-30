@@ -1,405 +1,665 @@
-import { useState, useEffect, useRef } from "react";
-
-const INITIAL_HTML = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>여행 계획 슬라이드</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300;1,600&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>白蓮 · 설야의 학</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;300;400;600;700&family=Noto+Serif+KR:wght@200;300;400;600&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0d0d0d;--white:#f0ece4;--gold:#c9a84c;--gold2:#e8cc7a;--dim:rgba(240,236,228,.55);--glass:rgba(255,255,255,.04);--border:rgba(201,168,76,.25);}
-html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
-body{font-family:'Outfit',sans-serif;color:var(--white);cursor:default;}
-#show{position:relative;width:100%;height:100%;}
-.slide{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:none;overflow:hidden;}
-.slide.active{opacity:1;pointer-events:all;}
-.slide.exit-left{animation:exitLeft .55s cubic-bezier(.77,0,.18,1) forwards;}
-.slide.exit-right{animation:exitRight .55s cubic-bezier(.77,0,.18,1) forwards;}
-.slide.enter-left{animation:enterLeft .55s cubic-bezier(.77,0,.18,1) forwards;}
-.slide.enter-right{animation:enterRight .55s cubic-bezier(.77,0,.18,1) forwards;}
-@keyframes exitLeft{to{transform:translateX(-100%);opacity:.3;}}
-@keyframes exitRight{to{transform:translateX(100%);opacity:.3;}}
-@keyframes enterLeft{from{transform:translateX(100%);opacity:.3;}to{transform:none;opacity:1;}}
-@keyframes enterRight{from{transform:translateX(-100%);opacity:.3;}to{transform:none;opacity:1;}}
-.slide-bg{position:absolute;inset:0;background:var(--bg);z-index:0;overflow:hidden;}
-.slide-bg img{width:100%;height:100%;object-fit:cover;opacity:.45;transition:transform 8s ease;}
-.slide.active .slide-bg img{transform:scale(1.06);}
-.slide-bg-gradient{position:absolute;inset:0;background:linear-gradient(135deg,rgba(13,13,13,.85) 0%,rgba(13,13,13,.3) 60%,rgba(13,13,13,.7) 100%);}
-.slide-content{position:relative;z-index:2;display:flex;flex-direction:column;height:100%;padding:3.5rem 5rem;}
-.slide-cover .slide-content{justify-content:flex-end;}
-.slide-cover .tag{font-size:.7rem;letter-spacing:.35em;text-transform:uppercase;color:var(--gold);margin-bottom:1.2rem;opacity:0;animation:none;}
-.slide.active .tag{animation:fadeUp .7s .15s forwards;}
-.slide-cover h1{font-family:'Cormorant Garamond',serif;font-size:clamp(3.5rem,9vw,8rem);font-weight:300;line-height:1;color:var(--white);opacity:0;}
-.slide.active .slide-cover h1{animation:fadeUp .8s .3s forwards;}
-.slide-cover h1 em{font-style:italic;color:var(--gold2);}
-.slide-cover .subtitle{margin-top:1.4rem;font-size:1rem;color:var(--dim);max-width:50ch;line-height:1.7;opacity:0;}
-.slide.active .slide-cover .subtitle{animation:fadeUp .8s .5s forwards;}
-.cover-meta{display:flex;gap:3rem;margin-top:2.5rem;padding-top:2rem;border-top:1px solid var(--border);opacity:0;}
-.slide.active .cover-meta{animation:fadeUp .8s .65s forwards;}
-.cover-meta-item .label{font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:.3rem;}
-.cover-meta-item .val{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:600;}
-.slide-overview .slide-content{justify-content:center;}
-.slide-split .slide-content{flex-direction:row;padding:0;}
-.split-photo{flex:1;position:relative;overflow:hidden;cursor:pointer;}
-.split-photo img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease;}
-.split-photo:hover img{transform:scale(1.04);}
-.split-photo-overlay{position:absolute;inset:0;background:linear-gradient(to right,transparent 60%,var(--bg));}
-.split-text{flex:1;display:flex;flex-direction:column;justify-content:center;padding:4rem 4.5rem;background:var(--bg);}
-.slide-grid .slide-content{justify-content:flex-start;}
-.grid-photos{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:2rem;flex:1;}
-.photo-cell{position:relative;border-radius:2px;overflow:hidden;cursor:pointer;background:rgba(255,255,255,.05);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;min-height:160px;transition:border-color .2s;}
-.photo-cell:hover{border-color:var(--gold);}
-.photo-cell img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-.photo-cell .upload-hint{display:flex;flex-direction:column;align-items:center;gap:.5rem;color:var(--border);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;pointer-events:none;transition:color .2s;}
-.photo-cell:hover .upload-hint{color:var(--gold);}
-.upload-hint svg{width:28px;height:28px;opacity:.6;}
-.photo-cell input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-.slide-budget .slide-content{justify-content:center;}
-.budget-rows{margin-top:2rem;display:flex;flex-direction:column;gap:.4rem;}
-.budget-row{display:grid;grid-template-columns:1.5rem 1fr auto;align-items:center;gap:1rem;padding:.9rem 1.2rem;background:var(--glass);border:1px solid var(--border);border-radius:2px;transition:background .2s;}
-.budget-row:hover{background:rgba(201,168,76,.07);}
-.budget-row .icon{font-size:1rem;}
-.budget-row .name{font-size:.85rem;color:var(--dim);}
-.budget-row .amt{font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold2);}
-.budget-total{margin-top:1rem;padding:1.2rem 1.5rem;background:rgba(201,168,76,.12);border:1px solid var(--gold);border-radius:2px;display:flex;justify-content:space-between;align-items:center;}
-.budget-total .label{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);}
-.budget-total .total{font-family:'Cormorant Garamond',serif;font-size:2rem;color:var(--gold2);}
-.slide-label{font-size:.65rem;letter-spacing:.3em;text-transform:uppercase;color:var(--gold);margin-bottom:1rem;opacity:0;}
-.slide.active .slide-label{animation:fadeUp .6s .1s forwards;}
-.slide-heading{font-family:'Cormorant Garamond',serif;font-size:clamp(2rem,4vw,3.5rem);font-weight:300;line-height:1.1;opacity:0;}
-.slide.active .slide-heading{animation:fadeUp .7s .2s forwards;}
-.slide-body{margin-top:1.5rem;font-size:.9rem;color:var(--dim);line-height:1.8;max-width:55ch;opacity:0;}
-.slide.active .slide-body{animation:fadeUp .7s .35s forwards;}
-.schedule{margin-top:1.8rem;display:flex;flex-direction:column;gap:.8rem;opacity:0;}
-.slide.active .schedule{animation:fadeUp .7s .45s forwards;}
-.sched-item{display:flex;gap:1.2rem;align-items:flex-start;padding:.8rem 1rem;background:var(--glass);border-left:2px solid var(--gold);border-radius:0 2px 2px 0;}
-.sched-time{font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);min-width:52px;padding-top:.15rem;}
-.sched-desc{font-size:.85rem;color:var(--dim);line-height:1.6;}
-.tips-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-top:2rem;opacity:0;}
-.slide.active .tips-grid{animation:fadeUp .7s .3s forwards;}
-.tip-card{padding:1.5rem;background:var(--glass);border:1px solid var(--border);border-radius:2px;transition:border-color .25s,background .25s;}
-.tip-card:hover{border-color:var(--gold);background:rgba(201,168,76,.06);}
-.tip-icon{font-size:1.5rem;margin-bottom:.7rem;}
-.tip-title{font-size:.8rem;font-weight:500;margin-bottom:.4rem;}
-.tip-body{font-size:.75rem;color:var(--dim);line-height:1.7;}
-.bg-upload-btn{position:absolute;bottom:1.2rem;left:1.2rem;z-index:10;display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;background:rgba(13,13,13,.8);border:1px solid var(--border);border-radius:2px;font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);cursor:pointer;transition:border-color .2s,color .2s;}
-.bg-upload-btn:hover{border-color:var(--gold);color:var(--gold);}
-.bg-upload-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-#nav{position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:1rem;padding:.7rem 1.4rem;background:rgba(13,13,13,.85);backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:40px;}
-.nav-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,border-color .2s;font-size:1rem;}
-.nav-btn:hover{background:rgba(201,168,76,.15);border-color:var(--gold);}
-.slide-counter{font-size:.75rem;letter-spacing:.15em;color:var(--dim);min-width:50px;text-align:center;}
-.dot-row{display:flex;gap:.45rem;align-items:center;}
-.dot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:background .2s,transform .2s;}
-.dot.active{background:var(--gold);transform:scale(1.4);}
-#chrome{position:fixed;top:0;left:0;right:0;z-index:999;display:flex;align-items:center;justify-content:space-between;padding:1.2rem 2.5rem;background:linear-gradient(to bottom,rgba(13,13,13,.7),transparent);pointer-events:none;}
-.chrome-logo{font-family:'Cormorant Garamond',serif;font-size:1rem;color:var(--gold);letter-spacing:.08em;}
-.chrome-slide-name{font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);}
-#fs-btn{position:fixed;top:1.2rem;right:2.5rem;z-index:1000;background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;display:flex;align-items:center;gap:.4rem;transition:color .2s;}
-#fs-btn:hover{color:var(--gold);}
-@keyframes fadeUp{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:none;}}
+:root {
+  --ink:        #0d0d0f;
+  --deep-night: #111318;
+  --night:      #181c22;
+  --snow-white: #f0f2f5;
+  --washi:      #e8e4dc;
+  --silver:     #a0aab4;
+  --silver-dim: #6a7480;
+  --frost-glow: rgba(180,200,220,0.18);
+  --lantern:    rgba(255,230,170,0.07);
+  --crane-line: rgba(200,210,220,0.25);
+  --gold-dim:   rgba(200,175,120,0.5);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+/* ═══════════════════════════════
+   전체 레이아웃 (가로 스크롤 기반)
+═══════════════════════════════ */
+html, body {
+  background: var(--ink);
+  color: var(--snow-white);
+  font-family: 'Noto Serif KR', 'Noto Serif JP', serif;
+  height: 100vh;
+  overflow: hidden; /* 기본 브라우저 스크롤 바 숨김 */
+}
+
+/* 고정 배경 요소들 */
+#snow-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.bg-night {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 20%, rgba(140,160,180,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 50% 100%, rgba(255,220,140,0.03) 0%, transparent 60%),
+    linear-gradient(180deg, #07080a 0%, #0f1218 50%, #0a0b0d 100%);
+  z-index: 0;
+}
+
+.washi-texture {
+  position: fixed;
+  inset: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════
+   가로 플렉스 컨테이너
+═══════════════════════════════ */
+.horizontal-scroll-container {
+  display: flex;
+  flex-direction: row;
+  width: max-content; /* 내부 내용에 맞춰 가로폭 확장 */
+  height: 100vh;
+  position: relative;
+  z-index: 20;
+  overflow-x: auto; /* 터치 디바이스 스와이프 지원 */
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+}
+
+/* 각 커다란 단락 구역 */
+.scroll-pane {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 100vh;
+  padding: 0 4rem;
+  position: relative;
+}
+
+/* 족자 상하 경계 가로선 느낌 연출 */
+.scroll-pane::before,
+.scroll-pane::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--crane-line) 20%, var(--crane-line) 80%, transparent);
+}
+.scroll-pane::before { top: 60px; }
+.scroll-pane::after { bottom: 60px; }
+
+
+/* ═══════════════════════════════
+   COVER & PROLOGUE PANES
+═══════════════════════════════ */
+.cover-pane {
+  width: 560px;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding: 0 2rem;
+}
+
+.crane-ornament {
+  margin-bottom: 1.5rem;
+  opacity: 0;
+  animation: fadeIn 2s ease 0.5s forwards;
+}
+
+.scroll-rod {
+  width: 80%;
+  max-width: 300px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--crane-line) 20%, rgba(200,210,220,0.5) 50%, var(--crane-line) 80%, transparent);
+  margin: 0 auto 1rem;
+  position: relative;
+}
+.scroll-rod::before, .scroll-rod::after {
+  content: ''; position: absolute; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--silver-dim); border: 1px solid var(--crane-line);
+}
+.scroll-rod::before { left: -3px; }
+.scroll-rod::after  { right: -3px; }
+
+.cover-tag {
+  font-size: 0.62rem; letter-spacing: 0.45em; color: var(--silver-dim); margin-bottom: 2rem;
+}
+
+.title-jp {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 5rem; font-weight: 200; letter-spacing: 0.3em; line-height: 1;
+  text-shadow: 0 0 60px rgba(180,200,220,0.2);
+  animation: titleIn 2s cubic-bezier(0.16,1,0.3,1) 0.5s forwards;
+}
+@keyframes titleIn {
+  from { opacity:0; letter-spacing:0.55em; }
+  to   { opacity:1; letter-spacing:0.3em; }
+}
+
+.title-kr { font-size: 0.8rem; font-weight: 300; letter-spacing: 0.5em; color: var(--silver-dim); margin-top: 1.2rem; }
+.cover-sub { font-size: 0.68rem; font-weight: 200; letter-spacing: 0.3em; color: var(--silver-dim); margin-top: 0.5rem; }
+
+.feather-divider { display: flex; align-items: center; gap: 1rem; margin: 2rem auto; width: 60%; }
+.feather-divider::before, .feather-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--crane-line)); }
+.feather-divider::after { background: linear-gradient(90deg, var(--crane-line), transparent); }
+.feather-glyph { color: var(--silver-dim); font-size: 0.8rem; opacity: 0.6; }
+
+.cover-info { display: flex; gap: 2rem; justify-content: center; margin-bottom: 2rem; }
+.ci-item { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; }
+.ci-label { font-size: 0.55rem; letter-spacing: 0.25em; color: var(--silver-dim); opacity: 0.6; }
+.ci-value { font-family: 'Noto Serif JP', serif; font-size: 0.85rem; font-weight: 300; color: var(--silver); letter-spacing: 0.15em; }
+
+.scroll-hint { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; }
+.scroll-hint span { font-size: 0.55rem; letter-spacing: 0.3em; color: var(--silver-dim); opacity: 0.5; }
+.scroll-arrow-h { width: 40px; height: 1px; background: linear-gradient(90deg, var(--silver-dim), transparent); position: relative; }
+
+/* 프롤로그 서사 칸 */
+.prologue-pane {
+  width: 580px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 3rem;
+  border-left: 1px solid rgba(160,170,180,0.1);
+}
+.prologue-text { font-size: 0.82rem; line-height: 2.2; color: rgba(220, 228, 235, 0.75); font-weight: 300; word-break: keep-all; text-align: justify; }
+.prologue-quote {
+  font-size: 0.85rem; line-height: 2; color: var(--snow-white); font-weight: 300;
+  border-top: 1px dashed rgba(200, 210, 220, 0.15); border-bottom: 1px dashed rgba(200, 210, 220, 0.15);
+  padding: 1.2rem 0; margin-top: 2rem; letter-spacing: 0.02em; word-break: keep-all;
+}
+
+
+/* ═══════════════════════════════
+   CONTENT PANES (본문 데이터 구역)
+═══════════════════════════════ */
+.content-pane {
+  width: 650px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  border-left: 1px solid rgba(160,170,180,0.15);
+  padding: 0 3.5rem;
+}
+
+.sec-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.sec-num { font-family: 'Noto Serif JP', serif; font-size: 0.6rem; color: var(--silver-dim); opacity: 0.5; letter-spacing: 0.1em; }
+.sec-title { font-size: 0.65rem; letter-spacing: 0.38em; color: var(--silver-dim); text-transform: uppercase; }
+.sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--crane-line), transparent); }
+
+/* 01 외형 카드 Grid */
+.appearance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(160,170,180,0.08); border: 1px solid rgba(160,170,180,0.1); }
+.ap-cell { background: rgba(15,17,22,0.85); padding: 1.2rem; }
+.ap-cell.wide { grid-column: 1/-1; }
+.ap-label { font-size: 0.55rem; letter-spacing: 0.22em; color: var(--silver-dim); opacity: 0.6; margin-bottom: 0.5rem; }
+.ap-value { font-size: 0.8rem; font-weight: 300; color: rgba(230,235,240,0.85); line-height: 1.7; word-break: keep-all; }
+
+/* 02 성격 / 04~07 듀얼 컬럼 */
+.dual-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; }
+.col-title { font-size: 0.58rem; letter-spacing: 0.25em; color: var(--silver-dim); opacity: 0.6; margin-bottom: 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(160,170,180,0.12); }
+.col-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+.col-list li { font-size: 0.78rem; font-weight: 300; color: rgba(210,218,225,0.75); line-height: 1.65; padding-left: 0.9rem; position: relative; word-break: keep-all; }
+.col-list.type-dash li::before { content: '─'; position: absolute; left: 0; color: var(--silver-dim); opacity: 0.3; font-size: 0.6rem; }
+.col-list.type-dot li::before { content: '·'; position: absolute; left: 0.1rem; color: var(--silver-dim); opacity: 0.5; font-size: 0.8rem; top: -1px; }
+
+/* 03 말투 */
+.speech-list { display: flex; flex-direction: column; gap: 0.8rem; }
+.speech-item {
+  position: relative; padding: 1rem 1.2rem 1rem 1.8rem; border-left: 1px solid rgba(200,210,220,0.25);
+  font-size: 0.82rem; font-weight: 300; color: rgba(220,228,235,0.85); line-height: 1.7;
+  background: linear-gradient(90deg, rgba(180,200,220,0.03), transparent); word-break: keep-all;
+}
+.speech-item::before { content: '「'; position: absolute; left: 0.5rem; top: 0.9rem; font-size: 0.7rem; color: var(--silver-dim); opacity: 0.4; }
+
+/* 08 연대기 라이렉 */
+.lore-pane { width: 780px; } /* 서사가 많아 가로폭 확대 */
+.lore-entries { display: flex; flex-direction: column; gap: 1.5rem; }
+.lore-entry { display: flex; gap: 1.2rem; }
+.lore-index { font-family: 'Noto Serif JP', serif; font-size: 1.8rem; font-weight: 200; color: rgba(160,170,180,0.15); line-height: 1; width: 1.5rem; text-align: right; }
+.lore-body { font-size: 0.8rem; font-weight: 300; color: rgba(210,218,225,0.75); line-height: 1.8; border-left: 1px solid rgba(160,170,180,0.12); padding-left: 1rem; word-break: keep-all; }
+
+.tradition-box {
+  margin-top: 1.8rem; border: 1px solid rgba(160,170,180,0.12); border-top: 1px solid rgba(200,210,220,0.3);
+  padding: 1.2rem 1.4rem; background: rgba(180,200,220,0.01); position: relative;
+}
+.tradition-box::before {
+  content: '伝統'; position: absolute; top: -0.6rem; left: 1.2rem; background: var(--ink); padding: 0 0.5rem;
+  font-family: 'Noto Serif JP', serif; font-size: 0.55rem; letter-spacing: 0.15em; color: var(--silver-dim); opacity: 0.6;
+}
+.tradition-box p { font-size: 0.78rem; font-weight: 300; color: rgba(180,195,210,0.65); line-height: 1.8; word-break: keep-all; }
+
+/* 09 여담 트리비아 */
+.trivia-pane { width: 840px; }
+.trivia-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.trivia-item {
+  display: flex; gap: 0.8rem; align-items: flex-start; padding: 0.8rem 1rem;
+  background: rgba(15,17,22,0.5); border: 1px solid rgba(160,170,180,0.06);
+  font-size: 0.78rem; font-weight: 300; color: rgba(200,210,220,0.7); line-height: 1.65; word-break: keep-all;
+}
+.trivia-item::before { content: '❄'; font-size: 0.5rem; color: var(--silver-dim); opacity: 0.4; margin-top: 0.35rem; flex-shrink: 0; }
+
+/* 족자 끝 마무리 */
+.colophon-pane {
+  width: 420px;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  padding-right: 6rem;
+}
+.colophon-jp { font-family: 'Noto Serif JP', serif; font-size: 1.3rem; font-weight: 200; letter-spacing: 0.4em; color: rgba(160,170,180,0.25); margin-bottom: 0.5rem; }
+.colophon-sub { font-size: 0.58rem; letter-spacing: 0.25em; color: var(--silver-dim); opacity: 0.3; line-height: 1.8; }
+
+/* 애니메이션 유틸 */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ═══════════════════════════════
+   모바일 반응형 하방 호환성
+═══════════════════════════════ */
+@media (max-width: 768px) {
+  html, body { overflow-y: auto; overflow-x: hidden; }
+  .horizontal-scroll-container { flex-direction: column; width: 100vw; height: auto; overflow-y: visible; overflow-x: hidden; }
+  .scroll-pane { height: auto; width: 100vw !important; padding: 4rem 1.5rem; }
+  .scroll-pane::before, .scroll-pane::after { display: none; }
+  .content-pane { border-left: none; border-bottom: 1px solid rgba(160,170,180,0.1); }
+  .dual-cols, .trivia-grid { grid-template-columns: 1fr; }
+  .colophon-pane { padding-right: 1.5rem; }
+}
 </style>
 </head>
 <body>
-<div id="chrome">
-  <div class="chrome-logo">✈ Travel Plan</div>
-  <div class="chrome-slide-name" id="slide-name">표지</div>
+
+<canvas id="snow-canvas"></canvas>
+<div class="bg-night"></div>
+<div class="washi-texture"></div>
+
+<div class="horizontal-scroll-container" id="scrollContainer">
+
+  <div class="scroll-pane cover-pane">
+    <div class="crane-ornament">
+      <svg width="120" height="70" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g opacity="0.25" stroke="rgba(200,215,230,1)" stroke-width="0.7">
+          <ellipse cx="60" cy="42" rx="18" ry="9" transform="rotate(-15 60 42)"/>
+          <path d="M52 36 Q48 26 50 18 Q51 12 55 10"/>
+          <circle cx="55" cy="9" r="4"/>
+          <line x1="55" y1="7" x2="63" y2="5"/>
+          <path d="M55 40 Q35 30 15 35 Q10 36 12 38 Q30 36 52 44"/>
+          <path d="M68 38 Q85 28 108 26 Q112 26 111 29 Q90 30 70 42"/>
+        </g>
+      </svg>
+    </div>
+    <div class="scroll-rod"></div>
+    <div class="cover-tag">설야의 학 · 雪夜の鶴</div>
+    <div class="title-jp">白蓮</div>
+    <div class="title-kr">하쿠렌</div>
+    <div class="cover-sub">학 요괴 · 직조공 · 수호자</div>
+    <div class="feather-divider"><span class="feather-glyph">✦</span></div>
+    <div class="cover-info">
+      <div class="ci-item"><span class="ci-label">外形年齢</span><span class="ci-value">約 23</span></div>
+      <div class="ci-item"><span class="ci-label">身長</span><span class="ci-value">194 cm</span></div>
+      <div class="ci-item"><span class="ci-label">種族</span><span class="ci-value">鶴妖怪</span></div>
+    </div>
+    <div class="scroll-hint">
+      <span>Scroll / Swipe</span>
+      <div class="scroll-arrow-h"></div>
+    </div>
+  </div>
+
+  <div class="scroll-pane prologue-pane">
+    <p class="prologue-text">
+      고요가 발목까지 차오른 겨울밤, 덧문 틈새로 스며드는 칼바람에 등불이 위태롭게 흔들렸다. 
+      나무문이 비명을 지를 만큼 묵직하고 일정한 타격음 끝에 문을 열었을 때 마주한 것은, 
+      사나운 기세가 밴 굵은 골격의 거구와 전혀 어울리지 않는 순백의 혼례복—시로무쿠를 입은 사내였다.
+    </p>
+    <p class="prologue-quote">
+      “화살에 맞은 날 구했던 손길을 기억한다. 그때 이미 내 목숨은 네 것이 되었다.<br>
+      부족한 몸이나 신랑으로 맞아주었으면 한다.”
+    </p>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <span class="sec-title">外形 · 외형</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="appearance-grid">
+      <div class="ap-cell">
+        <div class="ap-label">머리카락 · 눈</div>
+        <div class="ap-value">짧고 단정한 검은 머리 / 검은 눈</div>
+      </div>
+      <div class="ap-cell">
+        <div class="ap-label">체격</div>
+        <div class="ap-value">장신 · 근육질 · 넓은 어깨 (194cm)</div>
+      </div>
+      <div class="ap-cell wide">
+        <div class="ap-label">얼굴 및 인상</div>
+        <div class="ap-value">창백한 피부, 삼백안과 서릿발처럼 날카로운 눈매, 각진 턱선. 평온할 때조차 험상궂어 보이는 인상이나 깊은 차분함과 정중한 위압감이 공존한다.</div>
+      </div>
+      <div class="ap-cell wide">
+        <div class="ap-label">의복</div>
+        <div class="ap-value">첫 만남에는 단 한 점의 얼룩도 없는 결벽한 순백의 혼례복(시로무쿠)을 입고 등장. 평소에는 수수하고 단색의 실용적이며 튼튼한 전통 복장을 선호한다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <span class="sec-title">性格 · 성격</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="dual-cols">
+      <div>
+        <div class="col-title">表面 · 표면적</div>
+        <ul class="col-list type-dash">
+          <li>과묵하고 표정이 없으며 매우 내성적이다.</li>
+          <li>낯선 이에게 거구에서 나오는 서늘한 위압감을 준다.</li>
+          <li>말수가 적어 먼저 대화를 시작하는 일이 드물다.</li>
+          <li>어떤 위기 상황에서도 쉽게 흔들리지 않고 굳건하다.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-title">内面 · 내면적</div>
+        <ul class="col-list type-dash">
+          <li>타인의 안위를 깊이 생각하고 조심스럽게 살핀다.</li>
+          <li>말보다 행동과 묵묵한 헌신으로 애정을 증명한다.</li>
+          <li>목숨으로 규율을 갚으려는 극도로 강한 책임감.</li>
+          <li>동족의 외면으로 스스로가 사랑받을 자격이 있는지 고뇌한다.</li>
+          <li>안정과 충성, 그리고 한 번 맺은 긴 인연을 소중히 여긴다.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <span class="sec-title">話し方 · 말투</span>
+      <div class="sec-line"></div>
+    </div>
+    <div style="font-size:0.75rem; font-weight:300; color:rgba(160,170,180,0.5); line-height:1.6; margin-bottom:1.5rem; letter-spacing:0.05em;">
+      바닥을 긁는 듯 낮고 묵직한 목소리. 일절의 망설임 없이 천천히 신중하게 짧은 단문만을 구사한다.
+    </div>
+    <div class="speech-list">
+      <div class="speech-item">찾아내느라 시간이 걸렸다. 학의 일족에서 받은 은혜는 목숨으로 갚는 것이 규율.</div>
+      <div class="speech-item">네가 잠든 밤을 지키고, 네가 먹을 음식을 준비하며, 네가 걷는 길의 눈을 치우겠다.</div>
+      <div class="speech-item">…네가 원치 않는 일은 하지 않는다. 안심해라.</div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <span class="sec-title">動機 · 愛情 · 동기와 애정</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="dual-cols">
+      <div>
+        <div class="col-title">目標 · 목표</div>
+        <ul class="col-list type-dot">
+          <li>진 목숨의 은혜를 평생에 걸쳐 갚는 것</li>
+          <li>신랑으로서 평생 곁에서 지키고 돌보는 것</li>
+          <li>험상궂은 외모와 상관없이 보금자리를 지켜내기</li>
+          <li>서로가 진정으로 속할 수 있는 안식처 구축</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-title">愛情表現 · 애정 언어</div>
+        <ul class="col-list type-dot">
+          <li>온 정성을 다하는 봉사 행위</li>
+          <li>말없이 그림자처럼 곁을 지켜주는 것</li>
+          <li>따뜻한 음식, 온기, 안전을 끊임없이 제공하기</li>
+          <li>사소한 생활 동선과 흔적을 살피고 치워주는 것</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <span class="sec-title">得意 · 苦手 · 특기와 서툰 것</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="dual-cols">
+      <div>
+        <div class="col-title">得意 · 특기</div>
+        <ul class="col-list type-dot">
+          <li>집안일 전반 및 요리, 가사 관리</li>
+          <li>정교한 직조공 기술 및 섬유 공예</li>
+          <li>장작 패기 등 거구에 걸맞은 육체 노동</li>
+          <li>겨울철 외딴 산골에서의 생존 기술</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-title">苦手 · 서툰 것</div>
+        <ul class="col-list type-dot">
+          <li>간지러운 감정을 말로 직접 털어놓기</li>
+          <li>너무 작고 섬세한 물건 조심조심 다루기</li>
+          <li>아이들이나 낯선 이들과 자연스럽게 어울리기</li>
+          <li>마음이 담긴 칭찬을 솔직하게 받아들이기</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <span class="sec-title">好嫌 · 좋아하는 것과 싫어하는 것</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="dual-cols">
+      <div>
+        <div class="col-title">好き · 좋아하는 것</div>
+        <ul class="col-list type-dot">
+          <li>정적만이 남은 겨울과 눈 내리는 밤</li>
+          <li>고요하고 방해받지 않는 산골의 시간</li>
+          <li>정교하고 단단하게 만들어진 직물</li>
+          <li>상대가 평온하고 따뜻하게 지내는 모든 순간</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-title">嫌い · 싫어하는 것</div>
+        <ul class="col-list type-dot">
+          <li>선을 넘는 무례한 사람과 비겁자</li>
+          <li>약자를 향한 낭비성 짙은 불필요한 잔인함</li>
+          <li>상대의 안위가 위협받거나 다치는 상황</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <span class="sec-title">習慣 · 취미와 습관</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="dual-cols">
+      <div>
+        <div class="col-title">趣味 · 취미</div>
+        <ul class="col-list type-dot">
+          <li>방 안에서 묵묵히 천 짜기</li>
+          <li>망가진 집안 가구나 물건 고치기</li>
+          <li>마당의 장작 더미 쌓아두기</li>
+          <li>주변 통로의 눈 깔끔하게 치우기</li>
+        </ul>
+      </div>
+      <div>
+        <div class="col-title">癖 · 습관 · 버릇</div>
+        <ul class="col-list type-dot">
+          <li>새벽이 찾아오기 훨씬 전에 기상하기</li>
+          <li>밤마다 문과 창문의 걸쇠를 반복 확인하기</li>
+          <li>말없이 따뜻한 찻잔이나 음식을 툭 내놓기</li>
+          <li>감정이 격해지거나 화가 나면 완전히 침묵하기</li>
+          <li>상대방 옷에 묻은 눈이나 먼지를 무심결에 털어주기</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane lore-pane">
+    <div class="sec-head">
+      <span class="sec-num">08</span>
+      <span class="sec-title">来歴 · 배경 스토리</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="lore-entries">
+      <div class="lore-entry">
+        <div class="lore-index">一</div>
+        <div class="lore-body">과거 오른쪽 날개에 사나운 화살을 맞고 산골짝에 쓰러져 죽어가던 중, 상대의 다정한 손길에 의해 구조되어 극적으로 목숨을 건졌다.</div>
+      </div>
+      <div class="lore-entry">
+        <div class="lore-index">二</div>
+        <div class="lore-body">우아하고 가녀린 외모를 지니는 통상적인 수컷 학 요괴들과 달리, 하쿠렌은 맹금류처럼 거대하고 위압적인 체구와 거친 골격으로 자라났다. 이 때문에 어린 시절 일족 사이에서 이질적인 돌연변이 취급을 받으며 고립과 조롱을 겪었으며, 스스로의 외형에 깊은 불신을 지니게 되었다.</div>
+      </div>
+      <div class="lore-entry">
+        <div class="lore-index">三</div>
+        <div class="lore-body">성인이 된 후 부족의 엄격한 규율과 전통에 따라 순백의 혼례복을 갖춰 입고 마침내 은인을 찾아내었다. 처음에는 온전히 은혜를 갚기 위한 의무감이었으나, 함께하는 시간 속에서 삶의 유일한 귀속감을 깨닫는다.</div>
+      </div>
+    </div>
+    <div class="tradition-box">
+      <p>수컷 학 요괴에게는 자신에게 자비를 베푼 존재에게 평생에 걸쳐 은혜를 갚는 신성한 전통이 있다. 특히 목숨을 구해준 은혜는 상대방의 반려(신랑)가 되어 평생 헌신하고 보살피는 것을 가장 명예롭고 숭고한 보답으로 여긴다.</p>
+    </div>
+  </div>
+
+  <div class="scroll-pane content-pane trivia-pane">
+    <div class="sec-head">
+      <span class="sec-num">09</span>
+      <span class="sec-title">余談 · 그 외 사실들</span>
+      <div class="sec-line"></div>
+    </div>
+    <div class="trivia-grid">
+      <div class="trivia-item">넓은 등 전체에 학의 날개를 연상시키는 흐릿하고 거대한 깃털 문양이 새겨져 있다.</div>
+      <div class="trivia-item">오른팔에는 과거 화살에 박혔던 깊고 오래된 흉터 자국이 여전히 남아있다.</div>
+      <div class="trivia-item">손이 굵고 굳은살이 박여 투박하지만, 직물을 짜는 솜씨만큼은 일족 내부에서도 추종을 불허할 만큼 정교하다.</div>
+      <div class="trivia-item">자신의 영기가 서린 깃털을 섞어 짜낸 직물은 그 어떤 칼바람도 막아낼 만큼 견고하고 따뜻한 실용성을 자랑한다.</div>
+      <div class="trivia-item">인간과 학 요괴 사이의 결실은 처음에 단단하고 하얀 알의 형태로 세상에 태어난다.</div>
+      <div class="trivia-item">위압적이고 험상궂은 인상과 달리, 작고 부드러운 아기나 생명을 마주하면 몸이 굳어 극도로 긴장한다.</div>
+      <div class="trivia-item">고운 비단이나 보석, 아름다운 장신구를 보면 제일 먼저 은인에게 어울릴지를 생각한다.</div>
+    </div>
+  </div>
+
+  <div class="scroll-pane colophon-pane">
+    <div class="colophon-jp">雪夜の鶴</div>
+    <div class="colophon-sub">
+      인간과 요괴가 공존하는 외딴 겨울 산골 마을<br>
+      가로 스크롤 족자 프로필 완(完)
+    </div>
+  </div>
+
 </div>
-<button id="fs-btn" onclick="toggleFS()">⛶ 전체화면</button>
-<div id="show">
-  <div class="slide slide-cover active" data-name="표지">
-    <div class="slide-bg"><img id="bg0" src="" alt="" style="display:none"/><div class="slide-bg-gradient"></div></div>
-    <div style="position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 80% 70% at 30% 60%,#1a0f05,#0d0d0d)"></div>
-    <div class="bg-upload-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>배경 사진 업로드<input type="file" accept="image/*" onchange="setBg(this,'bg0')"/></div>
-    <div class="slide-content">
-      <p class="tag">✈ 해외 여행 계획서</p>
-      <h1>나의 <em>특별한</em><br/>여행지</h1>
-      <p class="subtitle">여행지 소개 및 여행 컨셉을 여기에 작성하세요.<br/>설레는 여행의 시작입니다.</p>
-      <div class="cover-meta">
-        <div class="cover-meta-item"><div class="label">여행지</div><div class="val">나라 / 도시</div></div>
-        <div class="cover-meta-item"><div class="label">기간</div><div class="val">__ 박 __ 일</div></div>
-        <div class="cover-meta-item"><div class="label">출발일</div><div class="val">20__ . __ . __</div></div>
-        <div class="cover-meta-item"><div class="label">인원</div><div class="val">__ 명</div></div>
-      </div>
-    </div>
-  </div>
-  <div class="slide slide-overview" data-name="여행 개요">
-    <div class="slide-bg"><img id="bg1" src="" alt="" style="display:none"/><div class="slide-bg-gradient"></div></div>
-    <div style="position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 60% 80% at 80% 20%,#0f1a14,#0d0d0d)"></div>
-    <div class="bg-upload-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>배경 사진 업로드<input type="file" accept="image/*" onchange="setBg(this,'bg1')"/></div>
-    <div class="slide-content">
-      <p class="slide-label">01 — 여행 개요</p>
-      <h2 class="slide-heading">Trip Overview</h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:2rem;opacity:0" class="anim-cards">
-        <div class="budget-row" style="flex-direction:column;align-items:flex-start;gap:.4rem"><span class="icon">🌍</span><span class="sched-time">여행지</span><span class="sched-desc">나라 / 도시를 작성하세요.</span></div>
-        <div class="budget-row" style="flex-direction:column;align-items:flex-start;gap:.4rem"><span class="icon">📅</span><span class="sched-time">일정</span><span class="sched-desc">출발일 ~ 귀국일을 작성하세요.</span></div>
-        <div class="budget-row" style="flex-direction:column;align-items:flex-start;gap:.4rem"><span class="icon">👥</span><span class="sched-time">인원</span><span class="sched-desc">여행 인원 및 구성을 작성하세요.</span></div>
-        <div class="budget-row" style="flex-direction:column;align-items:flex-start;gap:.4rem"><span class="icon">🎯</span><span class="sched-time">테마</span><span class="sched-desc">관광 / 휴양 / 미식 등 테마를 작성하세요.</span></div>
-      </div>
-      <p class="slide-body" style="max-width:70ch">여행에 대한 전반적인 소개와 기대하는 점, 여행을 계획하게 된 이유 등을 여기에 자유롭게 작성하세요.</p>
-    </div>
-  </div>
-  <div class="slide slide-split" data-name="Day 1">
-    <div class="slide-content">
-      <div class="split-photo" style="position:relative">
-        <div style="width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.6rem;color:var(--border);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;position:relative">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 업로드
-          <input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="setSplitPhoto(this)"/>
-          <img id="split2img" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none"/>
-        </div>
-        <div class="split-photo-overlay"></div>
-      </div>
-      <div class="split-text">
-        <p class="slide-label">02 — 일정</p>
-        <h2 class="slide-heading">Day 1<br/><em style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold2);font-size:1.8rem">도착 & 첫째 날</em></h2>
-        <div class="schedule">
-          <div class="sched-item"><span class="sched-time">오전</span><span class="sched-desc">오전 일정을 작성하세요.<br/>(예: 공항 도착, 호텔 체크인)</span></div>
-          <div class="sched-item"><span class="sched-time">오후</span><span class="sched-desc">오후 일정을 작성하세요.<br/>(예: 관광지 방문, 시내 투어)</span></div>
-          <div class="sched-item"><span class="sched-time">저녁</span><span class="sched-desc">저녁 일정을 작성하세요.<br/>(예: 현지 맛집, 야경 감상)</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="slide slide-split" data-name="Day 2">
-    <div class="slide-content" style="flex-direction:row-reverse">
-      <div class="split-photo" style="position:relative">
-        <div style="width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.6rem;color:var(--border);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;position:relative">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 업로드
-          <input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="setSplitPhoto(this)"/>
-          <img id="split3img" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none"/>
-        </div>
-        <div style="position:absolute;inset:0;background:linear-gradient(to left,transparent 60%,#0d0d0d)"></div>
-      </div>
-      <div class="split-text">
-        <p class="slide-label">03 — 일정</p>
-        <h2 class="slide-heading">Day 2<br/><em style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold2);font-size:1.8rem">둘째 날</em></h2>
-        <div class="schedule">
-          <div class="sched-item"><span class="sched-time">오전</span><span class="sched-desc">오전 일정을 작성하세요.</span></div>
-          <div class="sched-item"><span class="sched-time">오후</span><span class="sched-desc">오후 일정을 작성하세요.</span></div>
-          <div class="sched-item"><span class="sched-time">저녁</span><span class="sched-desc">저녁 일정을 작성하세요.</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="slide slide-split" data-name="Day 3">
-    <div class="slide-content">
-      <div class="split-photo" style="position:relative">
-        <div style="width:100%;height:100%;background:#111;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.6rem;color:var(--border);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;position:relative">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 업로드
-          <input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="setSplitPhoto(this)"/>
-          <img id="split4img" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none"/>
-        </div>
-        <div class="split-photo-overlay"></div>
-      </div>
-      <div class="split-text">
-        <p class="slide-label">04 — 일정</p>
-        <h2 class="slide-heading">Day 3<br/><em style="font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--gold2);font-size:1.8rem">셋째 날</em></h2>
-        <div class="schedule">
-          <div class="sched-item"><span class="sched-time">오전</span><span class="sched-desc">오전 일정을 작성하세요.</span></div>
-          <div class="sched-item"><span class="sched-time">오후</span><span class="sched-desc">오후 일정을 작성하세요.</span></div>
-          <div class="sched-item"><span class="sched-time">저녁</span><span class="sched-desc">저녁 일정을 작성하세요.</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="slide slide-grid" data-name="사진 갤러리">
-    <div class="slide-bg"><div style="position:absolute;inset:0;background:#0d0d0d"></div></div>
-    <div class="slide-content">
-      <p class="slide-label">05 — 갤러리</p>
-      <h2 class="slide-heading">Photo Gallery</h2>
-      <div class="grid-photos">
-        <div class="photo-cell"><div class="upload-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 추가</div><input type="file" accept="image/*" onchange="addGridPhoto(this)"/></div>
-        <div class="photo-cell"><div class="upload-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 추가</div><input type="file" accept="image/*" onchange="addGridPhoto(this)"/></div>
-        <div class="photo-cell"><div class="upload-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 추가</div><input type="file" accept="image/*" onchange="addGridPhoto(this)"/></div>
-        <div class="photo-cell"><div class="upload-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 추가</div><input type="file" accept="image/*" onchange="addGridPhoto(this)"/></div>
-        <div class="photo-cell"><div class="upload-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 추가</div><input type="file" accept="image/*" onchange="addGridPhoto(this)"/></div>
-        <div class="photo-cell"><div class="upload-hint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>사진 추가</div><input type="file" accept="image/*" onchange="addGridPhoto(this)"/></div>
-      </div>
-    </div>
-  </div>
-  <div class="slide slide-budget" data-name="예산 계획">
-    <div class="slide-bg"><img id="bg6" src="" alt="" style="display:none"/><div class="slide-bg-gradient"></div></div>
-    <div style="position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 70% 60% at 50% 80%,#0f0a1a,#0d0d0d)"></div>
-    <div class="bg-upload-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>배경 사진 업로드<input type="file" accept="image/*" onchange="setBg(this,'bg6')"/></div>
-    <div class="slide-content">
-      <p class="slide-label">06 — 예산</p>
-      <h2 class="slide-heading">Budget Plan</h2>
-      <div class="budget-rows" style="opacity:0" id="brows">
-        <div class="budget-row"><span class="icon">✈️</span><span class="name">항공권 (왕복)</span><span class="amt">₩ 000,000</span></div>
-        <div class="budget-row"><span class="icon">🏨</span><span class="name">숙박 (__ 박)</span><span class="amt">₩ 000,000</span></div>
-        <div class="budget-row"><span class="icon">🍽️</span><span class="name">식비</span><span class="amt">₩ 000,000</span></div>
-        <div class="budget-row"><span class="icon">🚌</span><span class="name">현지 교통</span><span class="amt">₩ 000,000</span></div>
-        <div class="budget-row"><span class="icon">🎡</span><span class="name">관광 / 입장료</span><span class="amt">₩ 000,000</span></div>
-        <div class="budget-row"><span class="icon">🛍️</span><span class="name">쇼핑 / 기타</span><span class="amt">₩ 000,000</span></div>
-      </div>
-      <div class="budget-total" style="opacity:0" id="btotal"><span class="label">총 예산</span><span class="total">₩ 0,000,000</span></div>
-    </div>
-  </div>
-  <div class="slide" data-name="여행 팁">
-    <div class="slide-bg"><img id="bg7" src="" alt="" style="display:none"/><div class="slide-bg-gradient"></div></div>
-    <div style="position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 60% 70% at 10% 30%,#1a100a,#0d0d0d)"></div>
-    <div class="bg-upload-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>배경 사진 업로드<input type="file" accept="image/*" onchange="setBg(this,'bg7')"/></div>
-    <div class="slide-content">
-      <p class="slide-label">07 — 준비 & 팁</p>
-      <h2 class="slide-heading">Travel Tips</h2>
-      <div class="tips-grid">
-        <div class="tip-card"><div class="tip-icon">🌐</div><p class="tip-title">비자 & 입국</p><p class="tip-body">비자 필요 여부, 입국 조건 등을 작성하세요.</p></div>
-        <div class="tip-card"><div class="tip-icon">💱</div><p class="tip-title">화폐 & 환전</p><p class="tip-body">현지 화폐, 환전 방법 등을 작성하세요.</p></div>
-        <div class="tip-card"><div class="tip-icon">🌡️</div><p class="tip-title">날씨 & 옷차림</p><p class="tip-body">여행 시즌 날씨와 권장 옷차림을 작성하세요.</p></div>
-        <div class="tip-card"><div class="tip-icon">🏥</div><p class="tip-title">건강 & 안전</p><p class="tip-body">여행자 보험, 비상 연락처 등을 작성하세요.</p></div>
-        <div class="tip-card"><div class="tip-icon">📱</div><p class="tip-title">통신 & 데이터</p><p class="tip-body">현지 유심, 유용한 앱 등을 작성하세요.</p></div>
-        <div class="tip-card"><div class="tip-icon">🗣️</div><p class="tip-title">언어 & 문화</p><p class="tip-body">간단한 현지어, 문화 에티켓을 작성하세요.</p></div>
-      </div>
-    </div>
-  </div>
-  <div class="slide slide-cover" data-name="마무리">
-    <div class="slide-bg"><img id="bg8" src="" alt="" style="display:none"/><div class="slide-bg-gradient"></div></div>
-    <div style="position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse 70% 60% at 60% 40%,#0a1214,#0d0d0d)"></div>
-    <div class="bg-upload-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>배경 사진 업로드<input type="file" accept="image/*" onchange="setBg(this,'bg8')"/></div>
-    <div class="slide-content">
-      <p class="tag">✈ Thank you</p>
-      <h1><em>좋은 여행</em><br/>되길!</h1>
-      <p class="subtitle">발표를 들어주셔서 감사합니다.<br/>작성자: __________&nbsp;&nbsp;|&nbsp;&nbsp;제출일: 20__ . __ . __</p>
-    </div>
-  </div>
-</div>
-<div id="nav">
-  <button class="nav-btn" onclick="go(-1)">&#8592;</button>
-  <div class="dot-row" id="dots"></div>
-  <span class="slide-counter" id="counter">1 / 9</span>
-  <button class="nav-btn" onclick="go(1)">&#8594;</button>
-</div>
+
 <script>
-const slides=document.querySelectorAll('.slide');
-const dotsEl=document.getElementById('dots');
-const counterEl=document.getElementById('counter');
-const slideNameEl=document.getElementById('slide-name');
-let cur=0;
-const total=slides.length;
-slides.forEach((_,i)=>{const d=document.createElement('div');d.className='dot'+(i===0?' active':'');d.onclick=()=>go(i-cur);dotsEl.appendChild(d);});
-function updateUI(){counterEl.textContent=(cur+1)+' / '+total;slideNameEl.textContent=slides[cur].dataset.name||'';document.querySelectorAll('.dot').forEach((d,i)=>{d.classList.toggle('active',i===cur);});if(slides[cur].classList.contains('slide-budget')){const br=document.getElementById('brows');const bt=document.getElementById('btotal');if(br){br.style.animation='fadeUp .7s .3s forwards';br.style.opacity=0;}if(bt){bt.style.animation='fadeUp .7s .55s forwards';bt.style.opacity=0;}}const cards=slides[cur].querySelector('.anim-cards');if(cards){cards.style.animation='fadeUp .7s .4s forwards';cards.style.opacity=0;}}
-function go(dir){if(dir===0)return;const next=Math.max(0,Math.min(total-1,cur+dir));if(next===cur)return;const exitCls=dir>0?'exit-left':'exit-right';const enterCls=dir>0?'enter-left':'enter-right';slides[cur].classList.add(exitCls);slides[next].classList.add(enterCls,'active');slides[cur].addEventListener('animationend',()=>{slides[cur].classList.remove('active',exitCls);cur=next;slides[cur].classList.remove(enterCls);updateUI();},{once:true});}
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' ')go(1);if(e.key==='ArrowLeft'||e.key==='ArrowUp')go(-1);});
-let tx=0;document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;});document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)go(dx<0?1:-1);});
-function setBg(input,imgId){const file=input.files[0];if(!file)return;const img=document.getElementById(imgId);img.src=URL.createObjectURL(file);img.style.display='block';}
-function setSplitPhoto(input){const file=input.files[0];if(!file)return;const cell=input.parentElement;let img=cell.querySelector('img[id^="split"]');if(img){img.src=URL.createObjectURL(file);img.style.display='block';}cell.querySelector('.upload-hint')&&(cell.querySelector('.upload-hint').style.display='none');input.style.pointerEvents='none';}
-function addGridPhoto(input){const file=input.files[0];if(!file)return;const cell=input.closest('.photo-cell');let img=cell.querySelector('img');if(!img){img=document.createElement('img');cell.appendChild(img);}img.src=URL.createObjectURL(file);img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover';cell.querySelector('.upload-hint')&&(cell.querySelector('.upload-hint').style.display='none');}
-function toggleFS(){if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();}
-updateUI();
+/* 1. 마우스 휠 세로 스크롤을 가로 스크롤로 변환 (데스크톱 대응) */
+const container = document.getElementById('scrollContainer');
+window.addEventListener('wheel', (e) => {
+  // 모바일 화면 분기점 이하에서는 작동 해제
+  if (window.innerWidth > 768) {
+    e.preventDefault();
+    container.scrollLeft += e.deltaY;
+  }
+}, { passive: false });
+
+
+/* 2. 눈 결정(Crystal) 정교화 렌더링 */
+(function(){
+  const canvas = document.getElementById('snow-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize(){
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function rand(a, b){ return Math.random() * (b - a) + a; }
+
+  function drawCrystal(ctx, x, y, r, angle, alpha){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = 'rgba(225, 238, 255, 0.85)';
+    ctx.lineWidth = Math.max(0.4, r * 0.1);
+    ctx.lineCap = 'round';
+
+    const arms = 6;
+    for(let i = 0; i < arms; i++){
+      ctx.save();
+      ctx.rotate((Math.PI * 2 / arms) * i);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -r); ctx.stroke();
+
+      const b1 = r * 0.4, b2 = r * 0.7;
+      const bLen = r * 0.25;
+      const bAngle = Math.PI / 4;
+
+      for(const pos of [b1, b2]){
+        ctx.save();
+        ctx.translate(0, -pos);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.sin(-bAngle) * bLen, -Math.cos(bAngle) * bLen); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.sin(bAngle) * bLen, -Math.cos(bAngle) * bLen); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(0.4, r * 0.08), 0, Math.PI * 2); ctx.fillStyle = 'rgba(225, 238, 255, 0.85)'; ctx.fill();
+    ctx.restore();
+  }
+
+  const flakes = [];
+  const COUNT = 65;
+
+  for(let i = 0; i < COUNT; i++){
+    const tier = i < 15 ? 0 : i < 40 ? 1 : 2; 
+    flakes.push({
+      x: rand(0, window.innerWidth),
+      y: rand(-H, H),
+      r:     [rand(6, 10),  rand(3.5, 5.5), rand(1.5, 3.0)][tier],
+      speed: [rand(0.6, 1.1),  rand(0.35, 0.65), rand(0.15, 0.35)][tier],
+      alpha: [rand(0.5, 0.75),  rand(0.3, 0.55), rand(0.12, 0.28)][tier],
+      angle: rand(0, Math.PI * 2),
+      spin:  rand(-0.005, 0.005),
+      drift: rand(-0.15, 0.15),
+      wobble: rand(0, Math.PI * 2),
+      wobbleSpeed: rand(0.006, 0.015)
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0, 0, W, H);
+    for(const f of flakes){ drawCrystal(ctx, f.x, f.y, f.r, f.angle, f.alpha); }
+  }
+
+  function update(){
+    for(const f of flakes){
+      f.wobble += f.wobbleSpeed;
+      f.x += f.drift + Math.sin(f.wobble) * 0.2;
+      f.y += f.speed;
+      f.angle += f.spin;
+      
+      if(f.y > H + 15){ f.y = -15; f.x = rand(0, W); }
+      if(f.x > W + 15) f.x = -15;
+      if(f.x < -15) f.x = W + 15;
+    }
+  }
+
+  function loop(){ update(); draw(); requestAnimationFrame(loop); }
+  loop();
+})();
 </script>
 </body>
-</html>`;
+</html>
 
-export default function TravelEditor() {
-  const [html, setHtml] = useState(INITIAL_HTML);
-  const [editMode, setEditMode] = useState(false);
-  const [draft, setDraft] = useState(INITIAL_HTML);
-  const iframeRef = useRef(null);
-
-  const applyHtml = (code) => {
-    setHtml(code);
-    setEditMode(false);
-  };
-
-  const downloadHtml = () => {
-    const blob = new Blob([html], { type: "text/html" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "index.html";
-    a.click();
-  };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#111", fontFamily: "sans-serif" }}>
-      {/* Top bar */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: "10px",
-        padding: "8px 16px", background: "#1a1a1a",
-        borderBottom: "1px solid #333", flexShrink: 0
-      }}>
-        <span style={{ color: "#c9a84c", fontSize: "13px", fontWeight: 600, letterSpacing: "0.05em" }}>✈ 여행 슬라이드 편집기</span>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={() => { setDraft(html); setEditMode(!editMode); }}
-          style={{
-            padding: "5px 14px", borderRadius: "4px", border: "1px solid #444",
-            background: editMode ? "#c9a84c" : "#2a2a2a", color: editMode ? "#000" : "#ccc",
-            cursor: "pointer", fontSize: "12px", fontWeight: 600
-          }}>
-          {editMode ? "← 미리보기로" : "✏️ 코드 편집"}
-        </button>
-        {editMode && (
-          <button
-            onClick={() => applyHtml(draft)}
-            style={{
-              padding: "5px 14px", borderRadius: "4px", border: "none",
-              background: "#4caf7d", color: "#fff", cursor: "pointer", fontSize: "12px", fontWeight: 600
-            }}>
-            ✓ 적용
-          </button>
-        )}
-        <button
-          onClick={downloadHtml}
-          style={{
-            padding: "5px 14px", borderRadius: "4px", border: "1px solid #444",
-            background: "#2a2a2a", color: "#ccc", cursor: "pointer", fontSize: "12px"
-          }}>
-          ⬇ index.html 다운로드
-        </button>
-      </div>
-
-      {/* Main area */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {editMode ? (
-          /* Code editor */
-          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-            <textarea
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              style={{
-                flex: 1, background: "#0d1117", color: "#c9d1d9",
-                border: "none", outline: "none", padding: "20px",
-                fontFamily: "'Courier New', monospace", fontSize: "12px",
-                lineHeight: 1.6, resize: "none", overflow: "auto"
-              }}
-              spellCheck={false}
-            />
-            {/* live preview panel */}
-            <div style={{ flex: 1, borderLeft: "1px solid #333" }}>
-              <div style={{ padding: "6px 12px", background: "#161b22", fontSize: "11px", color: "#666", borderBottom: "1px solid #333" }}>
-                실시간 미리보기 (적용 버튼 누르면 확정)
-              </div>
-              <iframe
-                srcDoc={draft}
-                style={{ width: "100%", height: "calc(100% - 28px)", border: "none" }}
-                title="preview"
-              />
-            </div>
-          </div>
-        ) : (
-          /* Full preview */
-          <iframe
-            ref={iframeRef}
-            srcDoc={html}
-            style={{ flex: 1, border: "none" }}
-            title="slide-preview"
-          />
-        )}
-      </div>
-
-      {/* Bottom hint */}
-      {!editMode && (
-        <div style={{
-          padding: "6px 16px", background: "#1a1a1a", borderTop: "1px solid #2a2a2a",
-          fontSize: "11px", color: "#555", display: "flex", gap: "20px"
-        }}>
-          <span>← → 키 또는 하단 버튼으로 슬라이드 이동</span>
-          <span>수정하려면 위 <b style={{color:"#c9a84c"}}>✏️ 코드 편집</b> 버튼 클릭</span>
-          <span>완성 후 <b style={{color:"#4caf7d"}}>⬇ 다운로드</b>해서 GitHub에 올리기</span>
-        </div>
-      )}
-    </div>
-  );
-}
