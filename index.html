@@ -3,13 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>하쿠렌 · 설야의 학</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;300;400;600;700&family=Noto+Serif+KR:wght@200;300;400;600&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<title>白蓮 · 설야의 학</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200;300;400;600;700&family=Noto+Serif+KR:wght@200;300;400;600&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════════════════════
-   공통 변수 및 초기화
-═══════════════════════════════ */
 :root {
   --ink:        #0d0d0f;
   --deep-night: #111318;
@@ -22,33 +18,35 @@
   --lantern:    rgba(255,230,170,0.07);
   --crane-line: rgba(200,210,220,0.25);
   --gold-dim:   rgba(200,175,120,0.5);
-  
-  /* 2번째 페이지 변수 통합 */
-  --deep: #0d0d1a;
-  --snow: #f5f5f7;
-  --frost: #dce8f0;
-  --moonlight: #a8c0d6;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
-html, body { width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
+
+html { scroll-behavior: smooth; }
 
 body {
+  background: var(--ink);
   color: var(--snow-white);
   font-family: 'Noto Serif KR', 'Noto Serif JP', serif;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ═══════════════════════════════
-   공통 배경 및 이펙트 (전체 고정)
+   눈 캔버스
 ═══════════════════════════════ */
 #snow-canvas {
   position: fixed;
-  inset: 0;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
 }
 
-.bg-global {
+/* ═══════════════════════════════
+   배경 — 밤 그라디언트 + 랜턴 글로우
+═══════════════════════════════ */
+.bg-night {
   position: fixed;
   inset: 0;
   background:
@@ -58,558 +56,943 @@ body {
   z-index: 0;
 }
 
+/* ═══════════════════════════════
+   화선지 텍스처 오버레이
+═══════════════════════════════ */
 .washi-texture {
   position: fixed;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
-  opacity: 0.5;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity: 0.6;
   pointer-events: none;
-  z-index: 2;
-}
-
-/* 2번째 페이지 달 & 안개 요소 배경에 배치 */
-.moon {
-  position: fixed;
-  top: 6vh;
-  right: 18vw;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 38%, #e8f0f8 0%, #c8dcee 40%, #a0bcd4 100%);
-  box-shadow: 0 0 40px 20px rgba(168,192,214,0.25), 0 0 100px 50px rgba(168,192,214,0.1);
-  z-index: 0;
-  opacity: 0;
-  transition: opacity 1s ease;
-}
-.body-page-2 .moon { opacity: 1; animation: moonPulse 6s ease-in-out infinite; }
-
-@keyframes moonPulse {
-  0%, 100% { box-shadow: 0 0 40px 20px rgba(168,192,214,0.25), 0 0 100px 50px rgba(168,192,214,0.1); }
-  50% { box-shadow: 0 0 55px 28px rgba(168,192,214,0.32), 0 0 120px 60px rgba(168,192,214,0.15); }
-}
-
-.mountains {
-  position: fixed;
-  bottom: 0; left: 0; width: 100%; height: 45vh;
-  z-index: 0; pointer-events: none;
-  opacity: 0; transition: opacity 1s ease;
-}
-.body-page-2 .mountains { opacity: 0.6; }
-.mountains svg { width: 100%; height: 100%; }
-
-.mist-overlay {
-  position: fixed;
-  bottom: 0; left: 0; width: 100%; height: 30vh;
-  background: linear-gradient(to top, rgba(10,15,30,0.8) 0%, transparent 100%);
-  z-index: 0; pointer-events: none;
+  z-index: 1;
 }
 
 /* ═══════════════════════════════
-   가로 슬라이더 구조
-═══════════════════════════════ */
-.slider-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  z-index: 3;
-}
-
-.slider-wrapper {
-  display: flex;
-  width: 200%;
-  height: 100%;
-  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
-  cursor: grab;
-}
-.slider-wrapper:active { cursor: grabbing; }
-
-.slide {
-  width: 50%;
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 0 1rem;
-}
-
-/* 슬라이더 인디케이터 */
-.slider-dots {
-  position: fixed;
-  bottom: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 0.8rem;
-  z-index: 100;
-}
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.2);
-  cursor: pointer;
-  transition: background 0.3s, transform 0.3s;
-}
-.dot.active {
-  background: var(--snow-white);
-  transform: scale(1.3);
-  box-shadow: 0 0 8px rgba(255,255,255,0.6);
-}
-
-/* ═══════════════════════════════
-   [페이지 1] 하쿠렌 프로필 스타일
+   스크롤 컨테이너
 ═══════════════════════════════ */
 .scroll-wrap {
   position: relative;
+  z-index: 2;
   max-width: 680px;
   margin: 0 auto;
   padding: 0 0 6rem;
 }
 
+/* ═══════════════════════════════
+   족자 테두리 장식 (세로선)
+═══════════════════════════════ */
 .scroll-wrap::before,
 .scroll-wrap::after {
-  content: ''; position: absolute; top: 80px; bottom: 80px; width: 1px;
-  background: linear-gradient(180deg, transparent 0%, var(--crane-line) 15%, var(--crane-line) 85%, transparent 100%);
+  content: '';
+  position: absolute;
+  top: 80px; bottom: 80px;
+  width: 1px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    var(--crane-line) 15%,
+    var(--crane-line) 85%,
+    transparent 100%);
 }
 .scroll-wrap::before { left: 0; }
 .scroll-wrap::after  { right: 0; }
 
+/* ═══════════════════════════════
+   COVER — 표지
+═══════════════════════════════ */
 .cover {
-  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  position: relative; padding: 4rem 2rem; text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 4rem 2rem;
+  text-align: center;
 }
 
-.crane-ornament { position: absolute; top: 5vh; left: 50%; transform: translateX(-50%); opacity: 0; animation: fadeIn 2s ease 0.5s forwards; }
-.scroll-rod { width: 80%; max-width: 340px; height: 1px; background: linear-gradient(90deg, transparent, var(--crane-line) 20%, rgba(200,210,220,0.5) 50%, var(--crane-line) 80%, transparent); margin: 0 auto 0.8rem; position: relative; opacity: 0; animation: fadeIn 1.5s ease 0.3s forwards; }
-.scroll-rod::before, .scroll-rod::after { content: ''; position: absolute; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--silver-dim); border: 1px solid var(--crane-line); }
-.scroll-rod::before { left: -3px; } .scroll-rod::after  { right: -3px; }
+/* 학 SVG 장식 — 상단 */
+.crane-ornament {
+  position: absolute;
+  top: 5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: fadeIn 2s ease 0.5s forwards;
+}
 
-.cover-tag { font-size: 0.62rem; letter-spacing: 0.45em; color: var(--silver-dim); margin-bottom: 2.5rem; opacity: 0; animation: fadeIn 1.5s ease 0.6s forwards; }
-.title-jp { font-family: 'Noto Serif JP', serif; font-size: clamp(4.5rem, 15vw, 7rem); font-weight: 200; letter-spacing: 0.3em; line-height: 1; color: var(--snow-white); text-shadow: 0 0 60px rgba(180,200,220,0.2), 0 0 120px rgba(180,200,220,0.08); opacity: 0; animation: titleIn 2s cubic-bezier(0.16,1,0.3,1) 0.8s forwards; }
+/* 가로 구분선 (족자 상단 봉) */
+.scroll-rod {
+  width: 80%;
+  max-width: 340px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--crane-line) 20%,
+    rgba(200,210,220,0.5) 50%,
+    var(--crane-line) 80%,
+    transparent);
+  margin: 0 auto 0.8rem;
+  position: relative;
+  opacity: 0;
+  animation: fadeIn 1.5s ease 0.3s forwards;
+}
 
-@keyframes titleIn { from { opacity:0; letter-spacing:0.55em; } to { opacity:1; letter-spacing:0.3em; } }
+.scroll-rod::before,
+.scroll-rod::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--silver-dim);
+  border: 1px solid var(--crane-line);
+}
+.scroll-rod::before { left: -3px; }
+.scroll-rod::after  { right: -3px; }
 
-.title-kr { font-size: 0.75rem; font-weight: 300; letter-spacing: 0.5em; color: var(--silver-dim); margin-top: 1.2rem; opacity: 0; animation: fadeIn 2s ease 1.4s forwards; }
-.cover-sub { font-size: 0.68rem; font-weight: 200; letter-spacing: 0.3em; color: var(--silver-dim); margin-top: 0.5rem; opacity: 0; animation: fadeIn 2s ease 1.6s forwards; }
-.feather-divider { display: flex; align-items: center; gap: 1rem; margin: 2.5rem auto; width: 80%; max-width: 320px; opacity: 0; animation: fadeIn 2s ease 1.8s forwards; }
-.feather-divider::before, .feather-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--crane-line)); }
-.feather-divider::after { background: linear-gradient(90deg, var(--crane-line), transparent); }
-.feather-glyph { color: var(--silver-dim); font-size: 0.9rem; opacity: 0.6; }
-.cover-info { display: flex; gap: 2.5rem; opacity: 0; animation: fadeIn 2s ease 2s forwards; }
-.ci-item { display: flex; flex-direction: column; gap: 0.25rem; align-items: center; }
-.ci-label { font-size: 0.55rem; letter-spacing: 0.25em; color: var(--silver-dim); opacity: 0.6; }
-.ci-value { font-family: 'Noto Serif JP', serif; font-size: 0.85rem; font-weight: 300; color: var(--silver); letter-spacing: 0.15em; }
+.cover-tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.45em;
+  color: var(--silver-dim);
+  margin-bottom: 2.5rem;
+  opacity: 0;
+  animation: fadeIn 1.5s ease 0.6s forwards;
+}
 
-.scroll-hint { position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 0.5rem; opacity: 0; animation: fadeIn 2s ease 2.5s forwards; }
-.scroll-hint span { font-size: 0.55rem; letter-spacing: 0.3em; color: var(--silver-dim); opacity: 0.4; }
-.scroll-arrow { width: 1px; height: 32px; background: linear-gradient(180deg, var(--silver-dim), transparent); animation: arrowPulse 2s ease infinite; }
+.title-jp {
+  font-family: 'Noto Serif JP', serif;
+  font-size: clamp(4.5rem, 15vw, 7rem);
+  font-weight: 200;
+  letter-spacing: 0.3em;
+  line-height: 1;
+  color: var(--snow-white);
+  text-shadow:
+    0 0 60px rgba(180,200,220,0.2),
+    0 0 120px rgba(180,200,220,0.08);
+  opacity: 0;
+  animation: titleIn 2s cubic-bezier(0.16,1,0.3,1) 0.8s forwards;
+}
 
-@keyframes arrowPulse { 0%,100% { opacity:0.3; transform:scaleY(1); } 50% { opacity:0.7; transform:scaleY(1.15); } }
+@keyframes titleIn {
+  from { opacity:0; letter-spacing:0.55em; }
+  to   { opacity:1; letter-spacing:0.3em; }
+}
 
-.sections { padding: 0 2rem; }
-.section { padding: 3rem 0; border-bottom: 1px solid rgba(160,170,180,0.08); opacity: 0; transform: translateY(20px); transition: opacity 0.8s ease, transform 0.8s ease; }
-.section.visible { opacity: 1; transform: translateY(0); }
-.sec-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.8rem; }
-.sec-num { font-family: 'Noto Serif JP', serif; font-size: 0.6rem; color: var(--silver-dim); opacity: 0.4; letter-spacing: 0.1em; flex-shrink: 0; }
-.sec-title { font-size: 0.6rem; letter-spacing: 0.38em; color: var(--silver-dim); text-transform: uppercase; flex-shrink: 0; }
-.sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, var(--crane-line), transparent); }
+.title-kr {
+  font-size: 0.75rem;
+  font-weight: 300;
+  letter-spacing: 0.5em;
+  color: var(--silver-dim);
+  margin-top: 1.2rem;
+  opacity: 0;
+  animation: fadeIn 2s ease 1.4s forwards;
+}
 
-.appearance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(160,170,180,0.08); border: 1px solid rgba(160,170,180,0.1); }
-.ap-cell { background: rgba(15,17,22,0.8); padding: 1.2rem 1.4rem; }
+.cover-sub {
+  font-size: 0.68rem;
+  font-weight: 200;
+  letter-spacing: 0.3em;
+  color: var(--silver-dim);
+  margin-top: 0.5rem;
+  opacity: 0;
+  animation: fadeIn 2s ease 1.6s forwards;
+}
+
+/* 학 깃털 장식선 */
+.feather-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 2.5rem auto;
+  width: 80%;
+  max-width: 320px;
+  opacity: 0;
+  animation: fadeIn 2s ease 1.8s forwards;
+}
+
+.feather-divider::before,
+.feather-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--crane-line));
+}
+.feather-divider::after {
+  background: linear-gradient(90deg, var(--crane-line), transparent);
+}
+
+.feather-glyph {
+  color: var(--silver-dim);
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
+.cover-info {
+  display: flex;
+  gap: 2.5rem;
+  opacity: 0;
+  animation: fadeIn 2s ease 2s forwards;
+}
+
+.ci-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.ci-label {
+  font-size: 0.55rem;
+  letter-spacing: 0.25em;
+  color: var(--silver-dim);
+  opacity: 0.6;
+}
+
+.ci-value {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 0.85rem;
+  font-weight: 300;
+  color: var(--silver);
+  letter-spacing: 0.15em;
+}
+
+.scroll-hint {
+  position: absolute;
+  bottom: 2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0;
+  animation: fadeIn 2s ease 2.5s forwards;
+}
+
+.scroll-hint span {
+  font-size: 0.55rem;
+  letter-spacing: 0.3em;
+  color: var(--silver-dim);
+  opacity: 0.4;
+}
+
+.scroll-arrow {
+  width: 1px;
+  height: 32px;
+  background: linear-gradient(180deg, var(--silver-dim), transparent);
+  animation: arrowPulse 2s ease infinite;
+}
+
+@keyframes arrowPulse {
+  0%,100% { opacity:0.3; transform:scaleY(1); }
+  50%      { opacity:0.7; transform:scaleY(1.15); }
+}
+
+/* ═══════════════════════════════
+   BODY 섹션들
+═══════════════════════════════ */
+.sections {
+  padding: 0 2rem;
+}
+
+/* 섹션 구분 — 족자 스크롤 느낌 */
+.section {
+  padding: 3rem 0;
+  border-bottom: 1px solid rgba(160,170,180,0.08);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.section.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+}
+
+.sec-num {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 0.6rem;
+  color: var(--silver-dim);
+  opacity: 0.4;
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+.sec-title {
+  font-size: 0.6rem;
+  letter-spacing: 0.38em;
+  color: var(--silver-dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.sec-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--crane-line), transparent);
+}
+
+/* ═══════════════════════════════
+   외형 카드
+═══════════════════════════════ */
+.appearance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(160,170,180,0.08);
+  border: 1px solid rgba(160,170,180,0.1);
+}
+
+.ap-cell {
+  background: rgba(15,17,22,0.8);
+  padding: 1.2rem 1.4rem;
+}
+
 .ap-cell.wide { grid-column: 1/-1; }
-.ap-label { font-size: 0.55rem; letter-spacing: 0.22em; color: var(--silver-dim); opacity: 0.55; margin-bottom: 0.5rem; }
-.ap-value { font-size: 0.83rem; font-weight: 300; color: rgba(230,235,240,0.85); line-height: 1.7; }
 
-.speech-list { display: flex; flex-direction: column; gap: 0.8rem; }
-.speech-item { position: relative; padding: 1rem 1.4rem 1rem 2rem; border-left: 1px solid rgba(200,210,220,0.2); font-size: 0.85rem; font-weight: 300; color: rgba(220,228,235,0.8); line-height: 1.8; background: linear-gradient(90deg, rgba(180,200,220,0.03), transparent); }
-.speech-item::before { content: '「'; position: absolute; left: 0.6rem; top: 0.9rem; font-size: 0.7rem; color: var(--silver-dim); opacity: 0.4; }
+.ap-label {
+  font-size: 0.55rem;
+  letter-spacing: 0.22em;
+  color: var(--silver-dim);
+  opacity: 0.55;
+  margin-bottom: 0.5rem;
+}
 
-.personality-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-.pcol-title { font-size: 0.58rem; letter-spacing: 0.25em; color: var(--silver-dim); opacity: 0.5; margin-bottom: 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(160,170,180,0.12); }
-.pcol-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
-.pcol-list li { font-size: 0.8rem; font-weight: 300; color: rgba(210,218,225,0.75); line-height: 1.65; padding-left: 1rem; position: relative; }
-.pcol-list li::before { content: '─'; position: absolute; left: 0; color: var(--silver-dim); opacity: 0.3; font-size: 0.65rem; }
-
-.dual { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-.col-block h4 { font-size: 0.58rem; letter-spacing: 0.25em; color: var(--silver-dim); opacity: 0.5; margin-bottom: 0.9rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(160,170,180,0.12); }
-.col-block ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
-.col-block li { font-size: 0.8rem; font-weight: 300; color: rgba(210,218,225,0.75); line-height: 1.6; padding-left: 1rem; position: relative; }
-.col-block li::before { content: '·'; position: absolute; left: 0.15rem; color: var(--silver-dim); opacity: 0.4; }
-
-.lore-entries { display: flex; flex-direction: column; gap: 1.8rem; }
-.lore-entry { display: flex; gap: 1.5rem; }
-.lore-index { font-family: 'Noto Serif JP', serif; font-size: 2rem; font-weight: 200; color: rgba(160,170,180,0.15); line-height: 1; flex-shrink: 0; padding-top: 0.1rem; width: 2.2rem; text-align: right; }
-.lore-body { font-size: 0.83rem; font-weight: 300; color: rgba(210,218,225,0.75); line-height: 1.85; padding-top: 0.2rem; border-left: 1px solid rgba(160,170,180,0.12); padding-left: 1.2rem; }
-
-.tradition-box { margin-top: 2rem; border: 1px solid rgba(160,170,180,0.12); border-top: 1px solid rgba(200,210,220,0.3); padding: 1.4rem 1.6rem; background: rgba(180,200,220,0.02); position: relative; }
-.tradition-box::before { content: '伝統'; position: absolute; top: -0.65rem; left: 1.2rem; background: var(--deep-night); padding: 0 0.5rem; font-family: 'Noto Serif JP', serif; font-size: 0.6rem; letter-spacing: 0.15em; color: var(--silver-dim); opacity: 0.5; }
-.tradition-box p { font-size: 0.8rem; font-weight: 300; color: rgba(180,195,210,0.6); line-height: 1.85; }
-
-.trivia-grid { display: flex; flex-direction: column; gap: 0.5rem; }
-.trivia-item { display: flex; gap: 1rem; align-items: flex-start; padding: 0.75rem 1rem; background: rgba(15,17,22,0.6); border: 1px solid rgba(160,170,180,0.07); font-size: 0.8rem; font-weight: 300; color: rgba(200,210,220,0.65); line-height: 1.65; }
-.trivia-item::before { content: '❄'; font-size: 0.55rem; color: var(--silver-dim); opacity: 0.3; margin-top: 0.35rem; flex-shrink: 0; }
-
-.bottom-rod { margin: 3rem 2rem 0; height: 1px; background: linear-gradient(90deg, transparent, var(--crane-line) 20%, var(--crane-line) 80%, transparent); position: relative; }
-.bottom-rod::before, .bottom-rod::after { content: ''; position: absolute; top: -4px; width: 9px; height: 9px; border-radius: 50%; background: rgba(150,160,170,0.2); border: 1px solid rgba(200,210,220,0.15); }
-.bottom-rod::before { left: calc(10% - 4px); } .bottom-rod::after  { right: calc(10% - 4px); }
-.colophon { text-align: center; padding: 2rem 2rem 0; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; }
-.colophon-jp { font-family: 'Noto Serif JP', serif; font-size: 1.2rem; font-weight: 200; letter-spacing: 0.4em; color: rgba(160,170,180,0.25); }
-.colophon-sub { font-size: 0.58rem; letter-spacing: 0.3em; color: var(--silver-dim); opacity: 0.25; }
+.ap-value {
+  font-size: 0.83rem;
+  font-weight: 300;
+  color: rgba(230,235,240,0.85);
+  line-height: 1.7;
+}
 
 /* ═══════════════════════════════
-   [페이지 2] 소설 스토리 스타일
+   말투 + 인용구
 ═══════════════════════════════ */
-.wrapper {
+.speech-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.speech-item {
   position: relative;
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 12vh 2rem 8vh;
+  padding: 1rem 1.4rem 1rem 2rem;
+  border-left: 1px solid rgba(200,210,220,0.2);
+  font-size: 0.85rem;
+  font-weight: 300;
+  color: rgba(220,228,235,0.8);
+  line-height: 1.8;
+  background: linear-gradient(90deg, rgba(180,200,220,0.03), transparent);
 }
 
-.title-block { text-align: center; margin-bottom: 7vh; opacity: 0; transform: translateY(30px); }
-.body-page-2 .title-block { animation: fadeUp 1.4s 0.3s cubic-bezier(0.22,1,0.36,1) forwards; }
-
-.eyebrow { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: clamp(0.75rem, 2vw, 0.9rem); letter-spacing: 0.35em; color: var(--moonlight); text-transform: uppercase; margin-bottom: 1.2rem; opacity: 0.7; }
-.main-title { font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 300; letter-spacing: 0.08em; color: var(--snow); line-height: 1.3; margin-bottom: 1.4rem; }
-.title-ornament { display: flex; align-items: center; justify-content: center; gap: 1rem; color: var(--moonlight); opacity: 0.5; }
-.title-ornament::before, .title-ornament::after { content: ''; display: block; width: 60px; height: 1px; background: linear-gradient(90deg, transparent, var(--moonlight), transparent); }
-.ornament-diamond { font-size: 0.5rem; }
-
-.story-card {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(168,192,214,0.1);
-  border-radius: 2px;
-  padding: clamp(2rem, 6vw, 3.5rem);
-  position: relative;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+.speech-item::before {
+  content: '「';
+  position: absolute;
+  left: 0.6rem;
+  top: 0.9rem;
+  font-size: 0.7rem;
+  color: var(--silver-dim);
+  opacity: 0.4;
 }
-.story-card::before {
-  content: ''; position: absolute; inset: -1px; border-radius: 2px;
-  background: linear-gradient(135deg, rgba(168,192,214,0.15), transparent 40%, transparent 60%, rgba(168,192,214,0.08));
-  pointer-events: none;
-}
-
-.paragraph { margin-bottom: 2em; font-size: clamp(0.88rem, 2.2vw, 1rem); color: rgba(245,245,247,0.88); opacity: 0; transform: translateY(18px); line-height: 2; }
-.paragraph.visible { animation: fadeUp 1s cubic-bezier(0.22,1,0.36,1) forwards; }
-
-.sfx { display: block; text-align: center; font-size: clamp(1.5rem, 5vw, 2.2rem); letter-spacing: 0.5em; color: var(--frost); margin: 1.8em 0; font-weight: 400; opacity: 0; transform: scale(0.9); }
-.sfx.visible { animation: sfxAppear 0.8s cubic-bezier(0.22,1,0.36,1) forwards; }
-
-@keyframes sfxAppear { to { opacity: 0.9; transform: scale(1); } }
-
-.dialogue { border-left: 2px solid rgba(168,192,214,0.35); padding: 0.6em 0 0.6em 1.4em; margin: 1.6em 0; color: var(--frost); font-style: italic; font-size: clamp(0.9rem, 2.3vw, 1.02rem); }
-.keyword { color: #c8dced; font-weight: 400; }
-.highlight-para { text-align: center; font-size: clamp(1.1rem, 3vw, 1.35rem); letter-spacing: 0.18em; color: var(--frost); margin: 2.5em 0; opacity: 0; }
-.highlight-para.visible { animation: fadeUp 1.2s cubic-bezier(0.22,1,0.36,1) forwards; }
-
-.divider { display: flex; align-items: center; gap: 1rem; margin: 3em 0 2em; opacity: 0.3; }
-.divider-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--moonlight), transparent); }
-.divider-icon { font-size: 0.6rem; color: var(--moonlight); }
-.snow-footer { margin-top: 3em; text-align: center; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: clamp(0.8rem, 2vw, 0.95rem); color: var(--moonlight); opacity: 0.5; letter-spacing: 0.1em; }
 
 /* ═══════════════════════════════
-   유틸 및 애니메이션
+   성격 — 표면 / 내면
 ═══════════════════════════════ */
-@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-@keyframes fadeUp { to { opacity: 1; transform: translateY(0) scale(1); } }
+.personality-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
 
-/* 스크롤바 */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(168,192,214,0.2); border-radius: 2px; }
+.pcol-title {
+  font-size: 0.58rem;
+  letter-spacing: 0.25em;
+  color: var(--silver-dim);
+  opacity: 0.5;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(160,170,180,0.12);
+}
+
+.pcol-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.pcol-list li {
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: rgba(210,218,225,0.75);
+  line-height: 1.65;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.pcol-list li::before {
+  content: '─';
+  position: absolute;
+  left: 0;
+  color: var(--silver-dim);
+  opacity: 0.3;
+  font-size: 0.65rem;
+}
+
+/* ═══════════════════════════════
+   듀얼 컬럼 일반
+═══════════════════════════════ */
+.dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.col-block h4 {
+  font-size: 0.58rem;
+  letter-spacing: 0.25em;
+  color: var(--silver-dim);
+  opacity: 0.5;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(160,170,180,0.12);
+}
+
+.col-block ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.col-block li {
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: rgba(210,218,225,0.75);
+  line-height: 1.6;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.col-block li::before {
+  content: '·';
+  position: absolute;
+  left: 0.15rem;
+  color: var(--silver-dim);
+  opacity: 0.4;
+}
+
+/* ═══════════════════════════════
+   배경 스토리
+═══════════════════════════════ */
+.lore-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+.lore-entry {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.lore-index {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 2rem;
+  font-weight: 200;
+  color: rgba(160,170,180,0.15);
+  line-height: 1;
+  flex-shrink: 0;
+  padding-top: 0.1rem;
+  width: 2.2rem;
+  text-align: right;
+}
+
+.lore-body {
+  font-size: 0.83rem;
+  font-weight: 300;
+  color: rgba(210,218,225,0.75);
+  line-height: 1.85;
+  padding-top: 0.2rem;
+  border-left: 1px solid rgba(160,170,180,0.12);
+  padding-left: 1.2rem;
+}
+
+/* 전통 노트 박스 */
+.tradition-box {
+  margin-top: 2rem;
+  border: 1px solid rgba(160,170,180,0.12);
+  border-top: 1px solid rgba(200,210,220,0.3);
+  padding: 1.4rem 1.6rem;
+  background: rgba(180,200,220,0.02);
+  position: relative;
+}
+
+.tradition-box::before {
+  content: '伝統';
+  position: absolute;
+  top: -0.65rem;
+  left: 1.2rem;
+  background: var(--deep-night);
+  padding: 0 0.5rem;
+  font-family: 'Noto Serif JP', serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: var(--silver-dim);
+  opacity: 0.5;
+}
+
+.tradition-box p {
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: rgba(180,195,210,0.6);
+  line-height: 1.85;
+}
+
+/* ═══════════════════════════════
+   트리비아
+═══════════════════════════════ */
+.trivia-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.trivia-item {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  background: rgba(15,17,22,0.6);
+  border: 1px solid rgba(160,170,180,0.07);
+  font-size: 0.8rem;
+  font-weight: 300;
+  color: rgba(200,210,220,0.65);
+  line-height: 1.65;
+}
+
+.trivia-item::before {
+  content: '❄';
+  font-size: 0.55rem;
+  color: var(--silver-dim);
+  opacity: 0.3;
+  margin-top: 0.35rem;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════
+   하단 봉 (족자 하단)
+═══════════════════════════════ */
+.bottom-rod {
+  margin: 3rem 2rem 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--crane-line) 20%, var(--crane-line) 80%, transparent);
+  position: relative;
+}
+
+.bottom-rod::before,
+.bottom-rod::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: rgba(150,160,170,0.2);
+  border: 1px solid rgba(200,210,220,0.15);
+}
+.bottom-rod::before { left: calc(10% - 4px); }
+.bottom-rod::after  { right: calc(10% - 4px); }
+
+.colophon {
+  text-align: center;
+  padding: 2rem 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.colophon-jp {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 1.2rem;
+  font-weight: 200;
+  letter-spacing: 0.4em;
+  color: rgba(160,170,180,0.25);
+}
+
+.colophon-sub {
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+  color: var(--silver-dim);
+  opacity: 0.25;
+}
+
+/* ═══════════════════════════════
+   유틸
+═══════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity:0; }
+  to   { opacity:1; }
+}
 
 @media (max-width: 500px) {
-  .appearance-grid, .personality-cols, .dual { grid-template-columns: 1fr; }
+  .appearance-grid,
+  .personality-cols,
+  .dual { grid-template-columns: 1fr; }
   .ap-cell.wide { grid-column: 1; }
   .title-jp { font-size: 4rem; }
   .sections { padding: 0 1.4rem; }
-  .scroll-wrap::before, .scroll-wrap::after { display:none; }
+  .scroll-wrap::before,
+  .scroll-wrap::after { display:none; }
 }
 </style>
 </head>
-<body class="body-page-1">
+<body>
 
 <canvas id="snow-canvas"></canvas>
-<div class="bg-global"></div>
+<div class="bg-night"></div>
 <div class="washi-texture"></div>
 
-<div class="moon"></div>
-<div class="mountains">
-  <svg viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="mtnGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#0a0f1e" stop-opacity="0.95"/>
-        <stop offset="100%" stop-color="#060a14" stop-opacity="1"/>
-      </linearGradient>
-      <linearGradient id="snowGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#c8dced" stop-opacity="0.7"/>
-        <stop offset="100%" stop-color="#c8dced" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <path d="M0,280 L120,180 L220,250 L340,130 L450,210 L560,100 L680,200 L780,140 L900,220 L1020,90 L1140,190 L1260,150 L1380,210 L1440,170 L1440,400 L0,400 Z" fill="url(#mtnGrad)"/>
-    <path d="M0,360 L100,290 L180,330 L280,260 L380,310 L480,240 L560,290 L680,250 L760,300 L880,230 L980,280 L1100,250 L1200,300 L1300,260 L1440,310 L1440,400 L0,400 Z" fill="#060a14"/>
-  </svg>
-</div>
-<div class="mist-overlay"></div>
+<div class="scroll-wrap">
 
-<div class="slider-container">
-  <div class="slider-wrapper" id="sliderWrapper">
-    
-    <div class="slide" id="slide1">
-      <div class="scroll-wrap">
-        <div class="cover">
-          <div class="crane-ornament">
-            <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g opacity="0.22" stroke="rgba(200,215,230,1)" stroke-width="0.7" fill="none">
-                <ellipse cx="60" cy="42" rx="18" ry="9" transform="rotate(-15 60 42)"/>
-                <path d="M52 36 Q48 26 50 18 Q51 12 55 10"/>
-                <circle cx="55" cy="9" r="4"/>
-                <line x1="55" y1="7" x2="63" y2="5"/>
-                <path d="M55 40 Q35 30 15 35 Q10 36 12 38 Q30 36 52 44"/>
-                <path d="M68 38 Q85 28 108 26 Q112 26 111 29 Q90 30 70 42"/>
-                <path d="M74 48 Q82 55 85 62"/><path d="M72 50 Q76 60 74 68"/><path d="M70 51 Q68 60 64 66"/>
-                <line x1="57" y1="51" x2="54" y2="66"/><line x1="63" y1="51" x2="62" y2="66"/>
-              </g>
-            </svg>
-          </div>
-          <div class="scroll-rod"></div>
-          <div class="cover-tag">설야의 학 · 雪夜の鶴 · Character Profile</div>
-          <div class="title-jp">白蓮</div>
-          <div class="title-kr">하쿠렌</div>
-          <div class="cover-sub">학 요괴 · 직조공 · 수호자</div>
-          <div class="feather-divider"><span class="feather-glyph">✦</span></div>
-          <div class="cover-info">
-            <div class="ci-item"><span class="ci-label">外形年齢</span><span class="ci-value">約 23</span></div>
-            <div class="ci-item"><span class="ci-label">身長</span><span class="ci-value">194 cm</span></div>
-            <div class="ci-item"><span class="ci-label">種族</span><span class="ci-value">鶴妖怪</span></div>
-          </div>
-          <div class="scroll-hint"><span>scroll &amp; swipe</span><div class="scroll-arrow"></div></div>
-        </div>
+  <!-- 표지 -->
+  <div class="cover">
 
-        <div class="sections">
-          <div class="section">
-            <div class="sec-head">
-              <span class="sec-num">01</span><span class="sec-title">外形 · 외형</span><div class="sec-line"></div>
-            </div>
-            <div class="appearance-grid">
-              <div class="ap-cell"><div class="ap-label">머리카락 · 눈</div><div class="ap-value">짧고 단정한 검은 머리 / 검은 눈</div></div>
-              <div class="ap-cell"><div class="ap-label">체격</div><div class="ap-value">장신 · 근육질 · 넓은 어깨</div></div>
-              <div class="ap-cell wide"><div class="ap-label">얼굴</div><div class="ap-value">창백한 피부, 삼백안과 날카로운 눈매, 각진 턱선. 평온할 때조차 험상궂어 보이는 인상이지만, 차분하고 듬직한 기운을 동시에 풍긴다.</div></div>
-              <div class="ap-cell wide"><div class="ap-label">의복</div><div class="ap-value">수수하고 절제된 전통 복장. 단색의 실용적이고 튼튼한 옷을 선호하며, 과한 장식을 피하고 편안함과 기능성을 우선시한다.</div></div>
-            </div>
-          </div>
+    <div class="crane-ornament">
+      <svg width="120" height="80" viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- 학 실루엣 (단순화, 선화) -->
+        <g opacity="0.22" stroke="rgba(200,215,230,1)" stroke-width="0.7" fill="none">
+          <!-- 몸통 -->
+          <ellipse cx="60" cy="42" rx="18" ry="9" transform="rotate(-15 60 42)"/>
+          <!-- 목 -->
+          <path d="M52 36 Q48 26 50 18 Q51 12 55 10"/>
+          <!-- 머리 -->
+          <circle cx="55" cy="9" r="4"/>
+          <!-- 부리 -->
+          <line x1="55" y1="7" x2="63" y2="5"/>
+          <!-- 왼쪽 날개 펼침 -->
+          <path d="M55 40 Q35 30 15 35 Q10 36 12 38 Q30 36 52 44"/>
+          <!-- 오른쪽 날개 -->
+          <path d="M68 38 Q85 28 108 26 Q112 26 111 29 Q90 30 70 42"/>
+          <!-- 꼬리 깃털 -->
+          <path d="M74 48 Q82 55 85 62"/>
+          <path d="M72 50 Q76 60 74 68"/>
+          <path d="M70 51 Q68 60 64 66"/>
+          <!-- 다리 -->
+          <line x1="57" y1="51" x2="54" y2="66"/>
+          <line x1="63" y1="51" x2="62" y2="66"/>
+          <line x1="54" y1="66" x2="50" y2="70"/>
+          <line x1="54" y1="66" x2="55" y2="71"/>
+          <line x1="62" y1="66" x2="58" y2="70"/>
+          <line x1="62" y1="66" x2="63" y2="71"/>
+          <!-- 깃털 디테일 -->
+          <path d="M30 34 Q40 38 45 42" stroke-dasharray="1 2"/>
+          <path d="M90 28 Q95 32 98 36" stroke-dasharray="1 2"/>
+        </g>
+        <!-- 눈송이 장식 -->
+        <g opacity="0.15" stroke="rgba(200,215,230,1)" stroke-width="0.5">
+          <line x1="10" y1="15" x2="10" y2="25"/> <line x1="5" y1="20" x2="15" y2="20"/>
+          <line x1="6.5" y1="16.5" x2="13.5" y2="23.5"/> <line x1="13.5" y1="16.5" x2="6.5" y2="23.5"/>
+          <line x1="100" y1="60" x2="100" y2="70"/> <line x1="95" y1="65" x2="105" y2="65"/>
+          <line x1="96.5" y1="61.5" x2="103.5" y2="68.5"/> <line x1="103.5" y1="61.5" x2="96.5" y2="68.5"/>
+        </g>
+      </svg>
+    </div>
 
-          <div class="section">
-            <div class="sec-head">
-              <span class="sec-num">02</span><span class="sec-title">性格 · 성격</span><div class="sec-line"></div>
-            </div>
-            <div class="personality-cols">
-              <div>
-                <div class="pcol-title">表面 · 표면적</div>
-                <ul class="pcol-list">
-                  <li>과묵하고 표정이 없으며 내성적이다</li>
-                  <li>낯선 이에게 차갑고 위압적으로 보인다</li>
-                  <li>먼저 말을 거는 일이 드물다</li>
-                </ul>
-              </div>
-              <div>
-                <div class="pcol-title">内面 · 내면적</div>
-                <ul class="pcol-list">
-                  <li>타인의 안위를 깊이 생각하고 세심히 살핀다</li>
-                  <li>말보다 행동으로 애정을 표현한다</li>
-                  <li>동족에게 외면당한 경험으로 자격이 없다 여긴다</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+    <div class="scroll-rod"></div>
+    <div class="cover-tag">설야의 학 · 雪夜の鶴 · Character Profile</div>
 
-          <div class="section">
-            <div class="sec-head">
-              <span class="sec-num">03</span><span class="sec-title">話し方 · 말투</span><div class="sec-line"></div>
-            </div>
-            <div class="speech-list">
-              <div class="speech-item">식사는 준비해두었다. 식기 전에 먹어라.</div>
-              <div class="speech-item">밤길은 위험하다. 돌아올 때까진 깨어 있겠다.</div>
-            </div>
-          </div>
+    <div class="title-jp">白蓮</div>
+    <div class="title-kr">하쿠렌</div>
+    <div class="cover-sub">학 요괴 · 직조공 · 수호자</div>
 
-          <div class="section">
-            <div class="sec-head">
-              <span class="sec-num">04</span><span class="sec-title">動機 · 愛情 · 동기와 애정</span><div class="sec-line"></div>
-            </div>
-            <div class="dual">
-              <div class="col-block">
-                <h4>目標 · 목표</h4>
-                <ul>
-                  <li>{{user}}에게 진 목숨의 은혜를 갚는 것</li>
-                  <li>평생 곁에서 지키고 돌보는 것</li>
-                </ul>
-              </div>
-              <div class="col-block">
-                <h4>愛情表現 · 애정 언어</h4>
-                <ul>
-                  <li>봉사하는 행동</li>
-                  <li>말없이 곁에 있어주는 것</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+    <div class="feather-divider">
+      <span class="feather-glyph">✦</span>
+    </div>
 
-          <div class="section">
-            <div class="sec-head">
-              <span class="sec-num">08</span><span class="sec-title">来歴 · 배경 스토리</span><div class="sec-line"></div>
-            </div>
-            <div class="lore-entries">
-              <div class="lore-entry">
-                <div class="lore-index">一</div>
-                <div class="lore-body">과거, 오른쪽 날개에 화살을 맞아 죽기 직전까지 갔으나 {{user}}에게 구조되어 목숨을 구했다.</div>
-              </div>
-              <div class="lore-entry">
-                <div class="lore-index">二</div>
-                <div class="lore-body">대부분의 수컷 학 요괴와 달리 거대하고 위압적인 체구로 성장하여 고립을 겪었다.</div>
-              </div>
-            </div>
-            <div class="tradition-box">
-              <p>수컷 학 요괴에게는, 자신에게 친절을 베푼 여성에게 은혜를 갚는 전통이 있다. 그 사람의 곁에 평생 머물며 돌보는 것이 가장 명예로운 보답이다.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="bottom-rod"></div>
-        <div class="colophon">
-          <div class="colophon-jp">雪夜의 鶴</div>
-          <div class="colophon-sub">역사 시대 일본 · 인간과 요괴가 공존하는 외딴 산골 마을</div>
-        </div>
+    <div class="cover-info">
+      <div class="ci-item">
+        <span class="ci-label">外形年齢</span>
+        <span class="ci-value">約 23</span>
+      </div>
+      <div class="ci-item">
+        <span class="ci-label">身長</span>
+        <span class="ci-value">194 cm</span>
+      </div>
+      <div class="ci-item">
+        <span class="ci-label">種族</span>
+        <span class="ci-value">鶴妖怪</span>
       </div>
     </div>
 
-    <div class="slide" id="slide2">
-      <div class="wrapper">
-        <div class="title-block">
-          <div class="eyebrow">a winter night encounter</div>
-          <h1 class="main-title">눈 속의<br>혼례복</h1>
-          <div class="title-ornament"><span class="ornament-diamond">◆</span></div>
-        </div>
-
-        <div class="story-card">
-          <p class="paragraph">
-            고요가 발목까지 차오른 겨울밤이었다. 덧문 틈새로 스며드는 칼바람에 등불이 위태롭게 흔들렸다.
-            온 세상의 소음을 눈이 전부 집어삼킨 듯한 <span class="keyword">정적</span> 속에서 오직 심장 소리만이 고동쳤다.
-          </p>
-
-          <p class="paragraph">문을 두드리는 소리는 예상치 못한 순간에 찾아왔다.</p>
-          <span class="sfx">쿵 &nbsp; 쿵</span>
-
-          <p class="paragraph">
-            나무문이 비명을 지를 만큼 묵직한 타격임에도 그 간격은 매우 일정하고 조심스러웠다.
-            툇마루로 향하며 마른침을 삼켰다. 이 산골짜기 외딴집에 이 밤중에 찾아올 손님이라곤
-            굶주린 짐승뿐일 터였다. 그러나 문을 열었을 때 마주한 것은 짐승보다 훨씬
-            <span class="keyword">압도적이고 이질적인 존재</span>였다.
-          </p>
-
-          <p class="paragraph">눈앞에 선 사내는 매우 하얀 피부의 거구였다. 잿빛 밤하늘을 등진 채 서 있는 그의 머리 위로 잘게 부서진 눈가루가 흩날렸다.</p>
-          <p class="highlight-para">시로무쿠였다.</p>
-
-          <p class="paragraph">
-            단 한 점의 얼룩도 허용하지 않겠다는 듯 결벽할 정도로 하얀 비단이 그의 넓은 어깨를 감싸고 있었다.
-            사내의 주변으로 갈무리되지 못한 <span class="keyword">영기</span>가 서늘하게 진동했다.
-          </p>
-
-          <div class="dialogue">"찾아내느라 시간이 걸렸다."</div>
-          <p class="paragraph">바닥을 긁는 듯한 낮은 저음이 고요한 마당에 깔렸다. 남자는 고개를 정중하게 숙이곤 말했다.</p>
-          <div class="dialogue">"학의 일족에서 받은 은혜는 목숨으로 갚는 것이 규율."</div>
-
-          <p class="paragraph">
-            그의 목소리에는 일말의 망설임도 없었다. 도리어 지나치게 진지해서 기이한 위압감마저 느껴질 정도였다.
-            검은 눈동자 속에는 무거운 책임감과 함께 설명하기 힘든 감정이 <span class="keyword">눅진하게</span> 배어 있었다.
-          </p>
-
-          <div class="dialogue">"화살에 맞은 날 구했던 손길을 기억한다. 그때 이미 내 목숨은 네 것이 되었다."</div>
-          <p class="paragraph">사내는 조심스럽게 커다란 손을 겹쳐왔다.</p>
-          <div class="dialogue">"부족한 몸이나 신랑으로 맞아주었으면 한다. 네가 잠든 밤을 지키고, 네가 먹을 음식을 준비하며, 네가 걷는 길의 눈을 치우는 일만큼은 누구보다 잘할 자신 있다. 그러니…"</div>
-
-          <p class="paragraph">
-            남자는 대답을 기다리며 차가운 눈밭 위에서 부동자세로 멈췄다. 조용히 내리쬐는 <span class="keyword">달빛</span>이 그의 각진 얼굴선을 서늘하게 비추었다.
-          </p>
-
-          <div class="divider">
-            <div class="divider-line"></div><span class="divider-icon">❄</span><div class="divider-line"></div>
-          </div>
-          <p class="snow-footer">눈은 여전히 내리고 있었다</p>
-        </div>
-      </div>
+    <div class="scroll-hint">
+      <span>scroll</span>
+      <div class="scroll-arrow"></div>
     </div>
-
   </div>
-</div>
 
-<div class="slider-dots">
-  <div class="dot active" onclick="goToSlide(0)"></div>
-  <div class="dot" onclick="goToSlide(1)"></div>
-</div>
+  <!-- 본문 -->
+  <div class="sections">
+
+    <!-- 01 외형 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">01</span>
+        <span class="sec-title">外形 · 외형</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="appearance-grid">
+        <div class="ap-cell">
+          <div class="ap-label">머리카락 · 눈</div>
+          <div class="ap-value">짧고 단정한 검은 머리 / 검은 눈</div>
+        </div>
+        <div class="ap-cell">
+          <div class="ap-label">체격</div>
+          <div class="ap-value">장신 · 근육질 · 넓은 어깨</div>
+        </div>
+        <div class="ap-cell wide">
+          <div class="ap-label">얼굴</div>
+          <div class="ap-value">창백한 피부, 삼백안과 날카로운 눈매, 각진 턱선. 평온할 때조차 험상궂어 보이는 인상이지만, 차분하고 듬직한 기운을 동시에 풍긴다.</div>
+        </div>
+        <div class="ap-cell wide">
+          <div class="ap-label">의복</div>
+          <div class="ap-value">수수하고 절제된 전통 복장. 단색의 실용적이고 튼튼한 옷을 선호하며, 과한 장식을 피하고 편안함과 기능성을 우선시한다.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 성격 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">02</span>
+        <span class="sec-title">性格 · 성격</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="personality-cols">
+        <div>
+          <div class="pcol-title">表面 · 표면적</div>
+          <ul class="pcol-list">
+            <li>과묵하고 표정이 없으며 내성적이다</li>
+            <li>낯선 이에게 차갑고 위압적으로 보인다</li>
+            <li>먼저 말을 거는 일이 드물다</li>
+            <li>압박 상황에서도 쉽게 흔들리지 않는다</li>
+          </ul>
+        </div>
+        <div>
+          <div class="pcol-title">内面 · 내면적</div>
+          <ul class="pcol-list">
+            <li>타인의 안위를 깊이 생각하고 세심히 살핀다</li>
+            <li>말보다 행동으로 애정을 표현한다</li>
+            <li>강한 책임감과 의무감을 지니고 있다</li>
+            <li>동족에게 외면당한 경험으로 스스로가 사랑받을 자격이 있다고 믿기 어려워한다</li>
+            <li>찰나의 감정보다 안정과 충성, 긴 인연을 소중히 여긴다</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 말투 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">03</span>
+        <span class="sec-title">話し方 · 말투</span>
+        <div class="sec-line"></div>
+      </div>
+      <div style="font-size:0.78rem; font-weight:300; color:rgba(160,170,180,0.5); line-height:1.7; margin-bottom:1.4rem; letter-spacing:0.05em;">
+        낮고 묵직한 목소리. 천천히, 신중하게. 짧고 무게 있는 문장만을 고른다.
+      </div>
+      <div class="speech-list">
+        <div class="speech-item">식사는 준비해두었다. 식기 전에 먹어라.</div>
+        <div class="speech-item">밤길은 위험하다. 돌아올 때까진 깨어 있겠다.</div>
+        <div class="speech-item">…네가 원치 않는 일은 하지 않는다. 안심해라.</div>
+      </div>
+    </div>
+
+    <!-- 04 동기 / 애정 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">04</span>
+        <span class="sec-title">動機 · 愛情 · 동기와 애정</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="dual">
+        <div class="col-block">
+          <h4>目標 · 목표</h4>
+          <ul>
+            <li>{{user}}에게 진 목숨의 은혜를 갚는 것</li>
+            <li>평생 곁에서 지키고 돌보는 것</li>
+            <li>진정으로 속할 수 있는 보금자리를 만드는 것</li>
+            <li>외모로 가치가 결정되지 않음을 증명하는 것</li>
+          </ul>
+        </div>
+        <div class="col-block">
+          <h4>愛情表現 · 애정 언어</h4>
+          <ul>
+            <li>봉사하는 행동</li>
+            <li>말없이 곁에 있어주는 것</li>
+            <li>음식, 온기, 안식처를 제공하는 것</li>
+            <li>사소한 것들을 기억하고 살피는 것</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 특기 / 서툰 것 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">05</span>
+        <span class="sec-title">得意 · 苦手 · 특기와 서툰 것</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="dual">
+        <div class="col-block">
+          <h4>得意 · 특기</h4>
+          <ul>
+            <li>집안일 전반</li>
+            <li>직조 및 섬유 공예</li>
+            <li>육체 노동</li>
+            <li>생존 기술</li>
+            <li>요리 및 가사 관리</li>
+          </ul>
+        </div>
+        <div class="col-block">
+          <h4>苦手 · 서툰 것</h4>
+          <ul>
+            <li>감정을 말로 표현하기</li>
+            <li>작고 섬세한 물건 다루기</li>
+            <li>아이들과 자연스럽게 어울리기</li>
+            <li>칭찬 받기</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 기호 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">06</span>
+        <span class="sec-title">好嫌 · 좋아하는 것과 싫어하는 것</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="dual">
+        <div class="col-block">
+          <h4>好き · 좋아하는 것</h4>
+          <ul>
+            <li>겨울과 눈이 내리는 밤</li>
+            <li>고요한 밤</li>
+            <li>정교하게 만들어진 직물과 전통 공예</li>
+            <li>{{user}}가 건강하고 따뜻하게 지내는 모습</li>
+          </ul>
+        </div>
+        <div class="col-block">
+          <h4>嫌い · 싫어하는 것</h4>
+          <ul>
+            <li>무례한 사람</li>
+            <li>약자를 괴롭히는 비겁자</li>
+            <li>낭비와 불필요한 잔인함</li>
+            <li>{{user}}가 위험에 처하는 것</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 07 취미 / 습관 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">07</span>
+        <span class="sec-title">習慣 · 취미와 습관</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="dual">
+        <div class="col-block">
+          <h4>趣味 · 취미</h4>
+          <ul>
+            <li>천 짜기</li>
+            <li>집안 물건 수리</li>
+            <li>장작 패기</li>
+            <li>집과 정원 관리</li>
+          </ul>
+        </div>
+        <div class="col-block">
+          <h4>癖 · 습관 · 버릇</h4>
+          <ul>
+            <li>새벽 전에 일어남</li>
+            <li>밤마다 문과 창문 확인</li>
+            <li>음식이나 따뜻한 음료를 몰래 내놓음</li>
+            <li>화가 나면 말이 없어짐</li>
+            <li>자고 있는 사람을 지켜봄</li>
+            <li>옷의 눈이나 먼지를 무심결에 털어줌</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 08 배경 스토리 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">08</span>
+        <span class="sec-title">来歴 · 배경 스토리</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="lore-entries">
+        <div class="lore-entry">
+          <div class="lore-index">一</div>
+          <div class="lore-body">과거, 오른쪽 날개에 화살을 맞아 죽기 직전까지 갔으나 {{user}}에게 구조되어 목숨을 구했다.</div>
+        </div>
+        <div class="lore-entry">
+          <div class="lore-index">二</div>
+          <div class="lore-body">대부분의 수컷 학 요괴는 가늘고 우아하며 아름다운 외모를 가진다. 그러나 하쿠렌은 맹금류를 연상케 하는 거대하고 위압적인 체구로 성장했다. 동족 사이에서 너무나 이질적이었기에 어린 시절 내내 조롱과 고립을 겪었다. "저렇게 험상궂은 놈을 누가 남편으로 삼겠냐"는 비아냥이 수년간 이어지다, 어느 날 그 중 한 명을 주먹 한 방에 쓰러뜨린 이후로는 아무도 대놓고 건드리지 않게 되었다.</div>
+        </div>
+        <div class="lore-entry">
+          <div class="lore-index">三</div>
+          <div class="lore-body">성인이 된 후 종족의 전통에 따라 {{user}}를 찾아갔다. 처음에는 은혜를 갚으려는 마음이 컸지만, 함께 살아가는 시간 속에서 진정한 편안함과 안정감, 그리고 진심 어린 애정을 느끼게 되었다.</div>
+        </div>
+      </div>
+      <div class="tradition-box">
+        <p>수컷 학 요괴에게는, 자신에게 친절을 베푼 여성에게 은혜를 갚는 전통이 있다. 목숨을 구해준 은혜는 특히 신성하게 여겨지며, 그 사람의 곁에 평생 머물며 돌보고 지키는 것이 가장 명예로운 방식의 보답으로 간주된다.</p>
+      </div>
+    </div>
+
+    <!-- 09 트리비아 -->
+    <div class="section">
+      <div class="sec-head">
+        <span class="sec-num">09</span>
+        <span class="sec-title">余談 · 그 외 사실들</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="trivia-grid">
+        <div class="trivia-item">등 전체에 깃털 무늬 같은 흐릿한 문양이 있다.</div>
+        <div class="trivia-item">오른팔에는 과거 상처로 남은 오래된 흉터가 있다.</div>
+        <div class="trivia-item">직조 솜씨가 뛰어남에도 불구하고 손이 크고 투박하다.</div>
+        <div class="trivia-item">영적 에너지가 깃든 깃털로 내구성 높은 천을 짤 수 있다. 대부분의 학 요괴가 아름다운 명주를 전문으로 하는 것과 달리, 그의 작품은 견고함과 실용성을 우선시한다.</div>
+        <div class="trivia-item">인간과 학 요괴 사이에서 태어난 아이는 알의 형태로 태어난다.</div>
+        <div class="trivia-item">고운 비단이나 보석, 아름다운 장신구를 보면 제일 먼저 {{user}}에게 어울릴지를 생각한다.</div>
+        <div class="trivia-item">위압적인 외모와 달리, 아기를 안게 되면 눈에 띄게 긴장한다.</div>
+      </div>
+    </div>
+
+  </div><!-- /sections -->
+
+  <div class="bottom-rod"></div>
+  <div class="colophon">
+    <div class="colophon-jp">雪夜の鶴</div>
+    <div class="colophon-sub">역사 시대 일본 · 인간과 요괴가 공존하는 외딴 산골 마을</div>
+  </div>
+
+</div><!-- /scroll-wrap -->
 
 <script>
 /* ═══════════════════════════════
-   1. 가로 슬라이더 스크립트 (터치/드래그 대응)
-═══════════════════════════════ */
-const wrapper = document.getElementById('sliderWrapper');
-const dots = document.querySelectorAll('.dot');
-let currentIdx = 0;
-let startX = 0;
-let currentX = 0;
-let isDragging = false;
-
-// 슬라이드 이동 함수
-function goToSlide(idx) {
-  currentIdx = idx;
-  wrapper.style.transform = `translateX(-${idx * 50}%)`;
-  
-  // 인디케이터 점 업데이트
-  dots.forEach((dot, i) => dot.classList.toggle('active', i === idx));
-  
-  // 페이지별 바디 클래스 제어 (배경 이펙트 트리거용)
-  document.body.className = `body-page-${idx + 1}`;
-  
-  // 2번 페이지로 가고 조건이 맞으면 페이드인 요소를 활성화
-  if(idx === 1) {
-    triggerStoryAnimation();
-  }
-}
-
-// 마우스/터치 드래그 이벤트 바인딩
-wrapper.addEventListener('mousedown', dragStart);
-wrapper.addEventListener('mousemove', dragMove);
-wrapper.addEventListener('mouseup', dragEnd);
-wrapper.addEventListener('mouseleave', dragEnd);
-
-wrapper.addEventListener('touchstart', dragStart, { passive: true });
-wrapper.addEventListener('touchmove', dragMove, { passive: true });
-wrapper.addEventListener('touchend', dragEnd);
-
-function dragStart(e) {
-  isDragging = true;
-  startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
-}
-
-function dragMove(e) {
-  if (!isDragging) return;
-  currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX;
-}
-
-function dragEnd() {
-  if (!isDragging) return;
-  isDragging = false;
-  const diffX = startX - currentX;
-
-  // 50px 이상 쓸었을 때 변환 처리
-  if (Math.abs(diffX) > 50) {
-    if (diffX > 0 && currentIdx === 0) goToSlide(1);
-    else if (diffX < 0 && currentIdx === 1) goToSlide(0);
-  }
-}
-
-/* ═══════════════════════════════
-   2. 통합된 캔버스 눈 내리기 효과
+   눈 내리기 (Canvas)
 ═══════════════════════════════ */
 (function(){
   const canvas = document.getElementById('snow-canvas');
@@ -623,41 +1006,44 @@ function dragEnd() {
   resize();
   window.addEventListener('resize', resize);
 
-  // 입자 개수 및 세팅 밸런싱
-  for(let i=0; i<140; i++){
+  const COUNT = 90;
+
+  function rand(a,b){ return Math.random()*(b-a)+a; }
+
+  for(let i=0;i<COUNT;i++){
     flakes.push({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r: Math.random() * 2.5 + 0.5,
-      speed: Math.random() * 0.6 + 0.3,
-      drift: (Math.random() - 0.5) * 0.2,
-      alpha: Math.random() * 0.45 + 0.15,
-      twinkle: Math.random() * Math.PI * 2
+      x: rand(0, window.innerWidth),
+      y: rand(0, window.innerHeight),
+      r: rand(0.5, 2.2),
+      speed: rand(0.3, 1.1),
+      drift: rand(-0.2, 0.2),
+      opacity: rand(0.08, 0.45),
+      wobble: rand(0, Math.PI*2),
+      wobbleSpeed: rand(0.003, 0.012),
     });
   }
 
   function draw(){
     ctx.clearRect(0,0,W,H);
     for(const f of flakes){
-      ctx.save();
-      ctx.globalAlpha = f.alpha * (0.85 + 0.15 * Math.sin(f.twinkle));
-      ctx.fillStyle = '#dce8f0';
       ctx.beginPath();
       ctx.arc(f.x, f.y, f.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(220,230,240,${f.opacity})`;
       ctx.fill();
-      ctx.restore();
     }
   }
 
   function update(){
     for(const f of flakes){
-      f.twinkle += 0.01;
+      f.wobble += f.wobbleSpeed;
+      f.x += f.drift + Math.sin(f.wobble)*0.15;
       f.y += f.speed;
-      f.x += f.drift + Math.sin(f.twinkle)*0.1;
-      if(f.y > H + 10){
-        f.y = -10;
-        f.x = Math.random() * W;
+      if(f.y > H + 5){
+        f.y = -5;
+        f.x = rand(0, W);
       }
+      if(f.x > W+5) f.x = -5;
+      if(f.x < -5) f.x = W+5;
     }
   }
 
@@ -670,36 +1056,510 @@ function dragEnd() {
 })();
 
 /* ═══════════════════════════════
-   3. 독립적 스크롤 페이드인 효과 (IntersectionObserver)
+   스크롤 페이드인
 ═══════════════════════════════ */
-// 1번 슬라이드 요소 관찰
-const p1Sections = document.querySelectorAll('#slide1 .section');
-const io1 = new IntersectionObserver((entries)=>{
-  entries.forEach(e=>{
-    if(e.isIntersecting) e.target.classList.add('visible');
-  });
-}, { threshold: 0.1 });
-p1Sections.forEach(s => io1.observe(s));
+(function(){
+  const sections = document.querySelectorAll('.section');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, { threshold: 0.1 });
+  sections.forEach(s => io.observe(s));
+})();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>흰 눈 속의 첫 만남</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Cormorant+Garamond:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-// 2번 슬라이드 요소 관찰
-const p2Elements = document.querySelectorAll('#slide2 .paragraph, #slide2 .sfx, #slide2 .highlight-para');
-const io2 = new IntersectionObserver((entries) => {
+  :root {
+    --ink: #1a1a2e;
+    --deep: #0d0d1a;
+    --snow: #f5f5f7;
+    --frost: #dce8f0;
+    --moonlight: #a8c0d6;
+    --mist: rgba(220, 232, 240, 0.12);
+    --glow: rgba(200, 220, 240, 0.08);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--deep);
+    color: var(--snow);
+    font-family: 'Noto Serif KR', serif;
+    font-weight: 300;
+    line-height: 2;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ── 설경 캔버스 ── */
+  #snow-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── 달빛 배경 ── */
+  .moon-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 72% 12%, rgba(168,192,214,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 80% at 50% 0%, rgba(13,20,40,0.95) 0%, var(--deep) 70%);
+  }
+
+  /* 달 */
+  .moon {
+    position: fixed;
+    top: 6vh;
+    right: 18vw;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 38%, #e8f0f8 0%, #c8dcee 40%, #a0bcd4 100%);
+    box-shadow:
+      0 0 40px 20px rgba(168,192,214,0.25),
+      0 0 100px 50px rgba(168,192,214,0.1),
+      0 0 200px 100px rgba(168,192,214,0.05);
+    z-index: 1;
+    animation: moonPulse 6s ease-in-out infinite;
+  }
+  @keyframes moonPulse {
+    0%, 100% { box-shadow: 0 0 40px 20px rgba(168,192,214,0.25), 0 0 100px 50px rgba(168,192,214,0.1); }
+    50% { box-shadow: 0 0 55px 28px rgba(168,192,214,0.32), 0 0 120px 60px rgba(168,192,214,0.15); }
+  }
+
+  /* ── 산 실루엣 ── */
+  .mountains {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 45vh;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .mountains svg { width: 100%; height: 100%; }
+
+  /* ── 메인 래퍼 ── */
+  .wrapper {
+    position: relative;
+    z-index: 10;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 12vh 2rem 8vh;
+  }
+
+  /* ── 제목부 ── */
+  .title-block {
+    text-align: center;
+    margin-bottom: 7vh;
+    opacity: 0;
+    transform: translateY(30px);
+    animation: fadeUp 1.4s 0.3s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+  .eyebrow {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(0.75rem, 2vw, 0.9rem);
+    letter-spacing: 0.35em;
+    color: var(--moonlight);
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+    opacity: 0.7;
+  }
+  .main-title {
+    font-size: clamp(2rem, 6vw, 3.2rem);
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    color: var(--snow);
+    line-height: 1.3;
+    margin-bottom: 1.4rem;
+  }
+  .title-ornament {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--moonlight);
+    opacity: 0.5;
+  }
+  .title-ornament::before,
+  .title-ornament::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--moonlight), transparent);
+  }
+  .ornament-diamond { font-size: 0.5rem; }
+
+  /* ── 글 카드 ── */
+  .story-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(168,192,214,0.12);
+    border-radius: 2px;
+    padding: clamp(2rem, 6vw, 3.5rem);
+    position: relative;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .story-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 2px;
+    background: linear-gradient(135deg, rgba(168,192,214,0.15), transparent 40%, transparent 60%, rgba(168,192,214,0.08));
+    pointer-events: none;
+  }
+
+  /* ── 단락들 ── */
+  .paragraph {
+    margin-bottom: 2em;
+    font-size: clamp(0.88rem, 2.2vw, 1rem);
+    color: rgba(245,245,247,0.88);
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  .paragraph.visible {
+    animation: fadeUp 1s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+
+  /* ── 의성어 강조 ── */
+  .sfx {
+    display: block;
+    text-align: center;
+    font-size: clamp(1.5rem, 5vw, 2.2rem);
+    letter-spacing: 0.5em;
+    color: var(--frost);
+    margin: 1.8em 0;
+    font-weight: 400;
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  .sfx.visible {
+    animation: sfxAppear 0.8s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+  @keyframes sfxAppear {
+    to { opacity: 0.9; transform: scale(1); }
+  }
+
+  /* ── 인용 대사 ── */
+  .dialogue {
+    border-left: 2px solid rgba(168,192,214,0.35);
+    padding: 0.6em 0 0.6em 1.4em;
+    margin: 1.6em 0;
+    color: var(--frost);
+    font-style: italic;
+    font-size: clamp(0.9rem, 2.3vw, 1.02rem);
+  }
+
+  /* ── 키워드 하이라이트 ── */
+  .keyword {
+    color: #c8dced;
+    font-weight: 400;
+  }
+
+  /* ── 시로무쿠 강조 단락 ── */
+  .highlight-para {
+    text-align: center;
+    font-size: clamp(1.1rem, 3vw, 1.35rem);
+    letter-spacing: 0.18em;
+    color: var(--frost);
+    margin: 2.5em 0;
+    opacity: 0;
+  }
+  .highlight-para.visible {
+    animation: fadeUp 1.2s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+
+  /* ── 마무리 구분선 ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 3em 0 2em;
+    opacity: 0.3;
+  }
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--moonlight), transparent);
+  }
+  .divider-icon { font-size: 0.6rem; color: var(--moonlight); }
+
+  /* ── 눈 쌓인 하단 ── */
+  .snow-footer {
+    margin-top: 3em;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: clamp(0.8rem, 2vw, 0.95rem);
+    color: var(--moonlight);
+    opacity: 0.5;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── 안개 오버레이 ── */
+  .mist-overlay {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 30vh;
+    background: linear-gradient(to top, rgba(10,15,30,0.8) 0%, transparent 100%);
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  /* ── 공통 애니메이션 ── */
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* 스크롤바 */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--deep); }
+  ::-webkit-scrollbar-thumb { background: rgba(168,192,214,0.3); border-radius: 2px; }
+
+  /* ── 떠다니는 눈결정 장식 ── */
+  .flake-deco {
+    position: fixed;
+    font-size: 0.7rem;
+    color: rgba(220,235,245,0.2);
+    pointer-events: none;
+    z-index: 1;
+    animation: floatFlake linear infinite;
+  }
+  @keyframes floatFlake {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 0.8; }
+    100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="snow-canvas"></canvas>
+<div class="moon-bg"></div>
+<div class="moon"></div>
+
+<!-- 산 실루엣 -->
+<div class="mountains">
+  <svg viewBox="0 0 1440 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="mtnGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#0a0f1e" stop-opacity="0.95"/>
+        <stop offset="100%" stop-color="#060a14" stop-opacity="1"/>
+      </linearGradient>
+      <linearGradient id="snowGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#c8dced" stop-opacity="0.7"/>
+        <stop offset="100%" stop-color="#c8dced" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <!-- 먼 산 -->
+    <path d="M0,280 L120,180 L220,250 L340,130 L450,210 L560,100 L680,200 L780,140 L900,220 L1020,90 L1140,190 L1260,150 L1380,210 L1440,170 L1440,400 L0,400 Z" fill="url(#mtnGrad)"/>
+    <!-- 가까운 산 -->
+    <path d="M0,360 L100,290 L180,330 L280,260 L380,310 L480,240 L560,290 L680,250 L760,300 L880,230 L980,280 L1100,250 L1200,300 L1300,260 L1440,310 L1440,400 L0,400 Z" fill="#060a14"/>
+    <!-- 눈 덮인 능선 -->
+    <path d="M340,130 L355,125 L370,122 L390,128 L400,132" stroke="url(#snowGrad)" stroke-width="3" fill="none" opacity="0.6"/>
+    <path d="M560,100 L575,95 L592,93 L610,98 L622,105" stroke="url(#snowGrad)" stroke-width="3" fill="none" opacity="0.6"/>
+    <path d="M1020,90 L1035,85 L1052,83 L1070,88 L1082,95" stroke="url(#snowGrad)" stroke-width="3" fill="none" opacity="0.6"/>
+  </svg>
+</div>
+
+<div class="mist-overlay"></div>
+
+<div class="wrapper">
+  <div class="title-block">
+    <div class="eyebrow">a winter night encounter</div>
+    <h1 class="main-title">눈 속의<br>혼례복</h1>
+    <div class="title-ornament">
+      <span class="ornament-diamond">◆</span>
+    </div>
+  </div>
+
+  <div class="story-card">
+
+    <p class="paragraph">
+      고요가 발목까지 차오른 겨울밤이었다. 덧문 틈새로 스며드는 칼바람에 등불이 위태롭게 흔들렸다.
+      온 세상의 소음을 눈이 전부 집어삼킨 듯한 <span class="keyword">정적</span> 속에서 오직 심장 소리만이 고동쳤다.
+    </p>
+
+    <p class="paragraph">
+      문을 두드리는 소리는 예상치 못한 순간에 찾아왔다.
+    </p>
+
+    <span class="sfx">쿵 &nbsp; 쿵</span>
+
+    <p class="paragraph">
+      나무문이 비명을 지를 만큼 묵직한 타격임에도 그 간격은 매우 일정하고 조심스러웠다.
+      툇마루로 향하며 마른침을 삼켰다. 이 산골짜기 외딴집에 이 밤중에 찾아올 손님이라곤
+      굶주린 짐승뿐일 터였다. 그러나 문을 열었을 때 마주한 것은 짐승보다 훨씬
+      <span class="keyword">압도적이고 이질적인 존재</span>였다.
+    </p>
+
+    <p class="paragraph">
+      쏟아져 들어오는 찬 공기와 함께 거대한 그림자가 시야를 가로막았다.
+    </p>
+
+    <p class="paragraph">
+      눈앞에 선 사내는 매우 하얀 피부의 거구였다. 잿빛 밤하늘을 등진 채 서 있는 그의 머리 위로
+      잘게 부서진 눈가루가 흩날렸다. 무엇보다 기묘한 것은 그가 걸친 옷차림이었다. 사나운 기세가 밴
+      굵은 골격과 흉터가 남은 거친 손. 그런 그와 전혀 어울리지 않는 순백의 혼례복.
+    </p>
+
+    <p class="highlight-para">시로무쿠였다.</p>
+
+    <p class="paragraph">
+      단 한 점의 얼룩도 허용하지 않겠다는 듯 결벽할 정도로 하얀 비단이 그의 넓은 어깨를
+      짓누르듯 감싸고 있었다. 서릿발처럼 날카로운 눈매가 시선과 맞닿았다.
+      사내의 주변으로 갈무리되지 못한 <span class="keyword">영기</span>가 서늘하게 진동했다.
+    </p>
+
+    <p class="paragraph">
+      그는 한동안 아무 말도 하지 않았다. 그저 굳게 다문 입술 사이로 하얀 입김을 뱉어내며
+      가만히 내려다볼 뿐이었다. 그러다 사내가 천천히 허리를 숙였다.
+      거대한 몸이 눈 쌓인 마루 아래로 무겁게 내려앉았다.
+    </p>
+
+    <div class="dialogue">
+      "찾아내느라 시간이 걸렸다."
+    </div>
+
+    <p class="paragraph">
+      바닥을 긁는 듯한 낮은 저음이 고요한 마당에 깔렸다. 남자는 고개를 정중하게 숙이곤 말했다.
+    </p>
+
+    <div class="dialogue">
+      "학의 일족에서 받은 은혜는 목숨으로 갚는 것이 규율."
+    </div>
+
+    <p class="paragraph">
+      그의 목소리에는 일말의 망설임도 없었다. 도리어 지나치게 진지해서 기이한 위압감마저 느껴질 정도였다.
+      남자는 천천히 고개를 들었다. 검은 눈동자 속에는 무거운 책임감과 함께
+      설명하기 힘든 감정이 <span class="keyword">눅진하게</span> 배어 있었다.
+    </p>
+
+    <div class="dialogue">
+      "화살에 맞은 날 구했던 손길을 기억한다. 그때 이미 내 목숨은 네 것이 되었다."
+    </div>
+
+    <p class="paragraph">
+      사내는 조심스럽게 커다란 손을 겹쳐왔다.
+    </p>
+
+    <div class="dialogue">
+      "부족한 몸이나 신랑으로 맞아주었으면 한다. 네가 잠든 밤을 지키고, 네가 먹을 음식을 준비하며,
+      네가 걷는 길의 눈을 치우는 일만큼은 누구보다 잘할 자신 있다. 그러니…"
+    </div>
+
+    <p class="paragraph">
+      남자는 대답을 기다리며 차가운 눈밭 위에서 부동자세로 멈췄다.
+      허락받기 전까지는 한 걸음도 넘지 않겠다는 듯. 어깨에는 긴 여행의 흔적을 대변하듯
+      눈이 소복이 쌓여 있었다. 조용히 내리쬐는 <span class="keyword">달빛</span>이
+      그의 각진 얼굴선을 서늘하게 비추었다.
+    </p>
+
+    <div class="divider">
+      <div class="divider-line"></div>
+      <span class="divider-icon">❄</span>
+      <div class="divider-line"></div>
+    </div>
+
+    <p class="snow-footer">눈은 여전히 내리고 있었다</p>
+
+  </div>
+</div>
+
+<script>
+/* ─── 눈 파티클 ─── */
+const canvas = document.getElementById('snow-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, flakes = [];
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Flake {
+  constructor() { this.reset(true); }
+  reset(init = false) {
+    this.x = Math.random() * W;
+    this.y = init ? Math.random() * H : -10;
+    this.r = Math.random() * 2.8 + 0.4;
+    this.speed = Math.random() * 0.6 + 0.2;
+    this.drift = (Math.random() - 0.5) * 0.25;
+    this.alpha = Math.random() * 0.55 + 0.15;
+    this.twinkle = Math.random() * Math.PI * 2;
+  }
+  update() {
+    this.y += this.speed;
+    this.x += this.drift + Math.sin(this.twinkle) * 0.15;
+    this.twinkle += 0.015;
+    if (this.y > H + 10) this.reset();
+  }
+  draw() {
+    ctx.save();
+    ctx.globalAlpha = this.alpha * (0.85 + 0.15 * Math.sin(this.twinkle));
+    ctx.fillStyle = '#dce8f0';
+    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'rgba(200,220,240,0.8)';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// 눈송이 수 (성능 균형)
+for (let i = 0; i < 180; i++) flakes.push(new Flake());
+
+function animate() {
+  ctx.clearRect(0, 0, W, H);
+  flakes.forEach(f => { f.update(); f.draw(); });
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ─── 스크롤 페이드인 ─── */
+const observer = new IntersectionObserver((entries) => {
   entries.forEach((entry, i) => {
     if (entry.isIntersecting) {
-      setTimeout(() => entry.target.classList.add('visible'), i * 60);
+      const el = entry.target;
+      setTimeout(() => el.classList.add('visible'), i * 80);
+      observer.unobserve(el);
     }
   });
-}, { root: document.getElementById('slide2'), threshold: 0.1 });
+}, { threshold: 0.15 });
 
-p2Elements.forEach(el => io2.observe(el));
+document.querySelectorAll('.paragraph, .sfx, .highlight-para').forEach(el => {
+  observer.observe(el);
+});
 
-// 2번 페이지로 이동했을 때 상단 텍스트 첫 등장 트리거 보정
-function triggerStoryAnimation() {
-  setTimeout(() => {
-    const first = document.querySelectorAll('#slide2 .paragraph')[0];
-    if (first) first.classList.add('visible');
-  }, 400);
-}
+// 제목 이후 첫 단락들 즉시 트리거
+setTimeout(() => {
+  const first = document.querySelectorAll('.paragraph')[0];
+  if (first) observer.unobserve(first), first.classList.add('visible');
+}, 1200);
 </script>
 </body>
 </html>
